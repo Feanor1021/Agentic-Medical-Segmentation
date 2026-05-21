@@ -1,0 +1,35 @@
+{
+  "run_id": "run_20260205-214545",
+  "events": [
+    {
+      "t": 1770320745.8100047,
+      "msg": "Run clicked"
+    },
+    {
+      "t": 1770320745.810015,
+      "msg": "Calling Hulu /infer",
+      "extra": {
+        "url": "http://localhost:8000/infer"
+      }
+    }
+  ],
+  "timing": {
+    "total_s": 21.942084550857544
+  },
+  "inputs": {
+    "path": "/tmp/gradio/6595d30dbffa49b680581911c7c09484592b9ce76ef67b293ebeabdfc4becebb/coronacases_org_003.nii",
+    "axis": 2,
+    "z": 99,
+    "mode": "3D volume",
+    "n_slices": 8,
+    "instruction": "Segment lung infection"
+  },
+  "vlm": {
+    "response_meta": {
+      "model_id": "ZJU-AI4H/Hulu-Med-7B",
+      "device": "cuda"
+    },
+    "text_head": "No, there is no segment lung infection.",
+    "parsed_json_found": false
+  }
+}

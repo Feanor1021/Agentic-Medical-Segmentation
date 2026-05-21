@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+transformers>=4.51.0
+accelerate>=1.7.0
+nibabel
+numpy
+pillow
+opencv-python-headless
+decord
+imageio
+imageio-ffmpeg

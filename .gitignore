@@ -1,0 +1,18 @@
+# --- Senin İstediğin Klasörler ---
+agentic/
+apptainer/
+
+# --- Güvenlik ve Boyut İçin Tavsiye Edilenler ---
+logs/
+# Eğer ssh klasöründe public/private key veya config varsa KESİNLİKLE Git'e atma!
+ssh/
+
+# --- Python ve Ortam Standartları ---
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv/
+env/
+venv/
+.DS_Store

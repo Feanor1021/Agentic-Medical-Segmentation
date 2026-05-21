@@ -1,0 +1,118 @@
+{
+  "run_id": "run_20260312-160932",
+  "goal": "Segment lung infection maybe dost maybe ???",
+  "status": "ok",
+  "user_raw": "Segment lung infection maybe dost maybe ???",
+  "intent_summary": "segment lung lesion",
+  "ambiguity": {
+    "present": true,
+    "resolved_by_image": true,
+    "notes": "The image shows a lung lesion, but the user's instruction is unclear."
+  },
+  "image": {
+    "modality": {
+      "label": "CT",
+      "confidence": 1.0,
+      "notes": "The image is a CT scan."
+    },
+    "anatomy": {
+      "region": "lung",
+      "confidence": 1.0,
+      "notes": "The image shows a lung lesion."
+    }
+  },
+  "task_intent": {
+    "type": "segmentation",
+    "target": "lung lesion",
+    "constraints": "3D"
+  },
+  "evidence": [
+    "The image shows a lung lesion.",
+    "The modality is CT."
+  ],
+  "questions": [],
+  "steps": [
+    {
+      "id": 1,
+      "name": "Validate that a lung CT lesion-segmentation tool supports 3D ground-glass opacity segmentation",
+      "goal": "Ensure the tool can handle the specific type of lesion seen in the image.",
+      "inputs": [
+        "<needed info>"
+      ],
+      "outputs": [
+        "<decision artifact>"
+      ]
+    }
+  ],
+  "message_to_user": "The image shows a lung lesion, but the user's instruction is unclear. Please provide more information about the type of lung infection you are looking for.",
+  "vlm_full": {
+    "status": "ok",
+    "user": {
+      "raw_input": "Segment lung infection maybe dost maybe ???",
+      "intent_summary": "segment lung lesion",
+      "ambiguity": {
+        "present": true,
+        "resolved_by_image": true,
+        "notes": "The image shows a lung lesion, but the user's instruction is unclear."
+      }
+    },
+    "image": {
+      "modality": {
+        "label": "CT",
+        "confidence": 1.0,
+        "notes": "The image is a CT scan."
+      },
+      "anatomy": {
+        "region": "lung",
+        "confidence": 1.0,
+        "notes": "The image shows a lung lesion."
+      }
+    },
+    "task_intent": {
+      "type": "segmentation",
+      "target": "lung lesion",
+      "constraints": "3D"
+    },
+    "evidence": [
+      "The image shows a lung lesion.",
+      "The modality is CT."
+    ],
+    "plan": [
+      {
+        "id": 1,
+        "name": "Validate that a lung CT lesion-segmentation tool supports 3D ground-glass opacity segmentation",
+        "goal": "Ensure the tool can handle the specific type of lesion seen in the image.",
+        "inputs": [
+          "<needed info>"
+        ],
+        "outputs": [
+          "<decision artifact>"
+        ]
+      }
+    ],
+    "message_to_user": "The image shows a lung lesion, but the user's instruction is unclear. Please provide more information about the type of lung infection you are looking for.",
+    "questions": []
+  },
+  "decision": {
+    "tool": "biomedparse",
+    "action": "proceed",
+    "reason": "lesion_like_target",
+    "questions": [],
+    "params": {
+      "text_prompt": "lung lesion",
+      "mode": "3d"
+    }
+  },
+  "tool_result": {
+    "tool": "biomedparse",
+    "ok": false,
+    "message": "Tool service URL not set. Define TOOL_URL_BIOMEDPARSE to enable execution.",
+    "mask_path": null,
+    "extra": {
+      "decision_params": {
+        "text_prompt": "lung lesion",
+        "mode": "3d"
+      }
+    }
+  }
+}

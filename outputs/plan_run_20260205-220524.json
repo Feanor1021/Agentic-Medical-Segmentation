@@ -1,0 +1,6 @@
+{
+  "run_id": "run_20260205-220524",
+  "goal": "is there any lung infection in this CT or MRI idk what it is ? and what should I do",
+  "steps": [],
+  "notes": "VLM returned non-JSON text (see report)."
+}

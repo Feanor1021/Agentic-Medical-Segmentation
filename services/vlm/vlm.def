@@ -1,0 +1,59 @@
+# =============================================================================
+# services/vlm/vlm.def  —  Apptainer / Singularity definition file
+#
+# Builds a SIF image for the VLM service on HPC clusters.
+# Functionally equivalent to vlm.Dockerfile.
+#
+# Build
+# -----
+#   apptainer build vlm.sif vlm.def
+#
+# Run
+# ---
+#   apptainer run --nv \
+#     --env HULU_MODEL_ID=ZJU-AI4H/Hulu-Med-4B \
+#     --env HF_HOME=/models/hf \
+#     --bind /scratch/.../models:/models \
+#     vlm.sif
+#
+# Notes
+# -----
+#   libgl1 + libglib2.0-0 + ffmpeg are required by opencv and decord.
+#   The existing torch in the base image is replaced with the pinned version.
+# =============================================================================
+
+Bootstrap: docker
+From: pytorch/pytorch:2.4.0-cuda11.8-cudnn9-runtime
+
+%labels
+    service vlm
+    port 8001
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export HF_HOME=/models/hf
+    export TRANSFORMERS_CACHE=/models/hf
+    export HOST=0.0.0.0
+    export PORT=8001
+    export CUDA_HOME=/usr/local/cuda
+
+%files
+    services/vlm/api.py /app/api.py
+    services/vlm/requirements.txt /app/requirements.txt
+
+%post
+    export TMPDIR=/scratch/project_2016517/furkan/tmp
+    export PIP_CACHE_DIR=/scratch/project_2016517/furkan/tmp/pip_cache
+    mkdir -p $TMPDIR $PIP_CACHE_DIR
+    apt-get update && apt-get install -y --no-install-recommends \
+        git curl ca-certificates libgl1 libglib2.0-0 ffmpeg \
+        && rm -rf /var/lib/apt/lists/*
+    pip install --no-cache-dir --upgrade pip
+    # Remove base-image torch before installing pinned version
+    pip uninstall -y torchvision torch || true
+    pip install --no-cache-dir -r /app/requirements.txt
+    mkdir -p /app/outputs
+
+%runscript
+    cd /app
+    exec uvicorn api:app --host 0.0.0.0 --port 8001 "$@"

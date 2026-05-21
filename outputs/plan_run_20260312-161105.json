@@ -1,0 +1,140 @@
+{
+  "run_id": "run_20260312-161105",
+  "goal": "kidney maybe ? I'm not sure I want kidney segmentation ",
+  "status": "ok",
+  "user_raw": "kidney maybe ? I'm not sure I want kidney segmentation",
+  "intent_summary": "segmentation",
+  "ambiguity": {
+    "present": true,
+    "resolved_by_image": false,
+    "notes": "The user is unsure about the target organ"
+  },
+  "image": {
+    "modality": {
+      "label": "CT",
+      "confidence": 1.0,
+      "notes": "The image is a CT scan"
+    },
+    "anatomy": {
+      "region": "abdomen",
+      "confidence": 1.0,
+      "notes": "The image shows abdominal organs"
+    }
+  },
+  "task_intent": {
+    "type": "segmentation",
+    "target": "kidney",
+    "constraints": "3D"
+  },
+  "evidence": [
+    "The image is a CT scan of the abdomen",
+    "The image shows abdominal organs"
+  ],
+  "questions": [],
+  "steps": [
+    {
+      "id": 1,
+      "name": "Confirm target organ",
+      "goal": "Ensure accurate segmentation by confirming the target organ",
+      "inputs": [
+        "user: What organ do you want to segment?"
+      ],
+      "outputs": [
+        "target: kidney"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Segment the target organ",
+      "goal": "Perform segmentation on the confirmed target organ",
+      "inputs": [
+        "target: kidney"
+      ],
+      "outputs": [
+        "segmented_kidney"
+      ]
+    }
+  ],
+  "message_to_user": "Please confirm the target organ for segmentation.",
+  "vlm_full": {
+    "status": "ok",
+    "user": {
+      "raw_input": "kidney maybe ? I'm not sure I want kidney segmentation",
+      "intent_summary": "segmentation",
+      "ambiguity": {
+        "present": true,
+        "resolved_by_image": false,
+        "notes": "The user is unsure about the target organ"
+      }
+    },
+    "image": {
+      "modality": {
+        "label": "CT",
+        "confidence": 1.0,
+        "notes": "The image is a CT scan"
+      },
+      "anatomy": {
+        "region": "abdomen",
+        "confidence": 1.0,
+        "notes": "The image shows abdominal organs"
+      }
+    },
+    "task_intent": {
+      "type": "segmentation",
+      "target": "kidney",
+      "constraints": "3D"
+    },
+    "evidence": [
+      "The image is a CT scan of the abdomen",
+      "The image shows abdominal organs"
+    ],
+    "plan": [
+      {
+        "id": 1,
+        "name": "Confirm target organ",
+        "goal": "Ensure accurate segmentation by confirming the target organ",
+        "inputs": [
+          "user: What organ do you want to segment?"
+        ],
+        "outputs": [
+          "target: kidney"
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Segment the target organ",
+        "goal": "Perform segmentation on the confirmed target organ",
+        "inputs": [
+          "target: kidney"
+        ],
+        "outputs": [
+          "segmented_kidney"
+        ]
+      }
+    ],
+    "message_to_user": "Please confirm the target organ for segmentation.",
+    "questions": []
+  },
+  "decision": {
+    "tool": "totalseg",
+    "action": "proceed",
+    "reason": "anatomy_like_target",
+    "questions": [],
+    "params": {
+      "structure": "kidney",
+      "mode": "3d"
+    }
+  },
+  "tool_result": {
+    "tool": "totalseg",
+    "ok": false,
+    "message": "Tool service URL not set. Define TOOL_URL_TOTALSEG to enable execution.",
+    "mask_path": null,
+    "extra": {
+      "decision_params": {
+        "structure": "kidney",
+        "mode": "3d"
+      }
+    }
+  }
+}

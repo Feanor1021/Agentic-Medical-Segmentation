@@ -1,0 +1,17 @@
+torch==2.10.0
+transformers==4.51.2
+tokenizers==0.21.4
+accelerate==1.7.0
+safetensors==0.7.0
+huggingface_hub==0.36.1
+hf-xet==1.2.0
+pydantic==2.8.2
+uvicorn==0.30.6
+fastapi==0.115.0
+regex==2026.1.15
+filelock==3.20.3
+PyYAML==6.0.3
+Jinja2==3.1.6
+packaging==26.0
+tqdm==4.67.3
+torchvision

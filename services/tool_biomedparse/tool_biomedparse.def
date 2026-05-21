@@ -1,0 +1,43 @@
+# =============================================================================
+# services/tool_biomedparse/tool_biomedparse.def  —  Apptainer / Singularity definition
+#
+# Builds a SIF image for the BiomedParse tool service on HPC clusters.
+# Base image already contains BiomedParse model code and weights;
+# only the FastAPI wrapper deps are installed in %post.
+#
+# Build
+# -----
+#   apptainer build tool_biomedparse.sif tool_biomedparse.def
+#
+# Run
+# ---
+#   apptainer run --nv tool_biomedparse.sif
+# =============================================================================
+
+Bootstrap: docker
+From: hariskhan687/biomedparse-tool:amd64
+
+%labels
+    service tool_biomedparse
+    port 8013
+    image hariskhan687/biomedparse-tool:amd64
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export PYTHONPATH=/app:$PYTHONPATH
+
+%files
+    services/tool_biomedparse/api.py /app/api.py
+
+%post
+    # fvcore, iopath, pycocotools are already baked into the base image
+    # Only install the FastAPI wrapper dependencies
+    pip install --no-cache-dir \
+        fastapi==0.115.0 \
+        "uvicorn[standard]==0.30.6" \
+        pydantic==2.8.2
+    mkdir -p /app
+
+%runscript
+    cd /app
+    exec uvicorn api:app --host 0.0.0.0 --port 8013 "$@"

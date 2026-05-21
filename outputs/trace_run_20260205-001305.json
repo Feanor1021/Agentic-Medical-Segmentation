@@ -1,0 +1,13 @@
+{
+  "run_id": "run_20260205-001305",
+  "events": [
+    {
+      "t": 1770243185.8737645,
+      "msg": "Run clicked"
+    },
+    {
+      "t": 1770243185.8737648,
+      "msg": "Prepared payload for mode=3D volume"
+    }
+  ]
+}

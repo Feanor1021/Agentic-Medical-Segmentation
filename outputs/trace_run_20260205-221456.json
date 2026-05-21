@@ -1,0 +1,35 @@
+{
+  "run_id": "run_20260205-221456",
+  "events": [
+    {
+      "t": 1770322496.9069881,
+      "msg": "Run clicked"
+    },
+    {
+      "t": 1770322496.906999,
+      "msg": "Calling Hulu /infer",
+      "extra": {
+        "url": "http://localhost:8000/infer"
+      }
+    }
+  ],
+  "timing": {
+    "total_s": 17.503663539886475
+  },
+  "inputs": {
+    "path": "/tmp/gradio/6595d30dbffa49b680581911c7c09484592b9ce76ef67b293ebeabdfc4becebb/coronacases_org_003.nii",
+    "axis": 2,
+    "z": 99,
+    "mode": "3D volume",
+    "n_slices": 8,
+    "instruction": "Is there any lung infection in this CT or MRI idk what it is ? and what should I do ? I wanna segment it."
+  },
+  "vlm": {
+    "response_meta": {
+      "model_id": "ZJU-AI4H/Hulu-Med-7B",
+      "device": "cuda"
+    },
+    "text_head": "{\n  \"status\": \"ok\",\n  \"modality\": {\n    \"label\": \"CT\",\n    \"confidence\": 0.9,\n    \"notes\": \"The image is described as a CT scan\"\n  },\n  \"anatomy\": {\n    \"region\": \"chest/lung\",\n    \"confidence\": 0.8,\n    \"notes\": \"The image shows the lungs and chest area\"\n  },\n  \"task_intent\": {\n    \"type\": \"segmentation\",\n    \"target\": \"lung infection\"\n  },\n  \"evidence\": {\n    \"summary\": \"The image shows a lung with possible",
+    "parsed_json_found": false
+  }
+}

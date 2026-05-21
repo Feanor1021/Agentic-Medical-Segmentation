@@ -1,0 +1,57 @@
+# =============================================================================
+# services/llm/llm.def  —  Apptainer / Singularity definition file
+#
+# Builds a SIF image for the LLM service on HPC clusters.
+# Functionally equivalent to llm.Dockerfile.
+#
+# Build
+# -----
+#   apptainer build llm.sif llm.def
+#
+# Run
+# ---
+#   apptainer run --nv \
+#     --env QWEN_MODEL_ID=Qwen/Qwen2.5-3B-Instruct \
+#     --env HF_HOME=/models/hf \
+#     --bind /scratch/.../models:/models \
+#     llm.sif
+#
+# Notes
+# -----
+#   TMPDIR and PIP_CACHE_DIR redirect to scratch to avoid quota issues.
+#   The existing torch from the base image is replaced with the pinned
+#   version in requirements.txt (pip uninstall first).
+# =============================================================================
+
+Bootstrap: docker
+From: pytorch/pytorch:2.4.0-cuda11.8-cudnn9-runtime
+
+%labels
+    service llm
+    port 8002
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export HF_HOME=/models/hf
+    export TRANSFORMERS_CACHE=/models/hf
+
+%files
+    services/llm/server.py /app/server.py
+    services/llm/requirements.txt /app/requirements.txt
+
+%post
+    export TMPDIR=/scratch/project_2016517/furkan/tmp
+    export PIP_CACHE_DIR=/scratch/project_2016517/furkan/tmp/pip_cache
+    mkdir -p $TMPDIR $PIP_CACHE_DIR
+    apt-get update && apt-get install -y --no-install-recommends \
+        git curl ca-certificates \
+        && rm -rf /var/lib/apt/lists/*
+    pip install --no-cache-dir --upgrade pip
+    # Remove base-image torch before installing pinned version
+    pip uninstall -y torchvision torch || true
+    pip install --no-cache-dir -r /app/requirements.txt
+    mkdir -p /app
+
+%runscript
+    cd /app
+    exec uvicorn server:app --host 0.0.0.0 --port 8002 "$@"

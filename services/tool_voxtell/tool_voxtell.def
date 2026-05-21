@@ -1,0 +1,44 @@
+# =============================================================================
+# services/tool_voxtell/tool_voxtell.def  —  Apptainer / Singularity definition
+#
+# Builds a SIF image for the VoxTell tool service on HPC clusters.
+#
+# Build
+# -----
+#   apptainer build tool_voxtell.sif tool_voxtell.def
+#
+# Run
+# ---
+#   apptainer run \
+#     --bind /path/to/weights:/app/voxtell_weights \
+#     tool_voxtell.sif
+# =============================================================================
+
+Bootstrap: docker
+From: python:3.11-slim
+
+%labels
+    service tool_voxtell
+    port 8012
+
+%environment
+    export PYTHONUNBUFFERED=1
+
+%files
+    services/tool_voxtell/api.py /app/api.py
+
+%post
+    export TMPDIR=/scratch/project_2016517/furkan/tmp
+    export PIP_CACHE_DIR=/scratch/project_2016517/furkan/tmp/pip_cache
+    mkdir -p $TMPDIR $PIP_CACHE_DIR
+    pip install --no-cache-dir --upgrade pip
+    pip install --no-cache-dir \
+        fastapi==0.115.0 \
+        "uvicorn[standard]==0.30.6" \
+        pydantic==2.8.2 \
+        numpy==2.2.6
+    mkdir -p /app
+
+%runscript
+    cd /app
+    exec uvicorn api:app --host 0.0.0.0 --port 8012 "$@"

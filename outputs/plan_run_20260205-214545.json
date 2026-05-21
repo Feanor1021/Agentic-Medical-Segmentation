@@ -1,0 +1,6 @@
+{
+  "run_id": "run_20260205-214545",
+  "goal": "Segment lung infection",
+  "steps": [],
+  "notes": "VLM returned non-JSON text (see report)."
+}

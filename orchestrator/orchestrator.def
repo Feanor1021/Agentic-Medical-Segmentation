@@ -1,0 +1,54 @@
+# =============================================================================
+# orchestrator.def  —  Apptainer / Singularity definition file
+#
+# Builds a SIF image for the orchestrator service on HPC clusters where
+# Docker is unavailable.  Functionally equivalent to orchestrator.Dockerfile
+# but uses Apptainer's %post section for setup.
+#
+# Build
+# -----
+#   apptainer build orchestrator.sif orchestrator.def
+#
+# Run
+# ---
+#   apptainer run \
+#     --env VLM_URL=http://vlm-service:8000 \
+#     --env LLM_URL=http://llm-service:8001 \
+#     --env TOOL_URL_TOTALSEG=http://totalseg:8011 \
+#     orchestrator.sif
+#
+# Notes
+# -----
+#   TMPDIR and PIP_CACHE_DIR are redirected to a project scratch directory
+#   to avoid quota issues on /tmp during the build.
+# =============================================================================
+
+Bootstrap: docker
+From: python:3.10-slim
+
+%labels
+    service orchestrator
+    port 7860
+
+%environment
+    export PYTHONDONTWRITEBYTECODE=1
+    export PYTHONUNBUFFERED=1
+
+%files
+    orchestrator/ /app/
+    orchestrator/requirements.txt /app/requirements.txt
+
+%post
+    export TMPDIR=/scratch/project_2016517/furkan/tmp
+    export PIP_CACHE_DIR=/scratch/project_2016517/furkan/tmp/pip_cache
+    mkdir -p $TMPDIR $PIP_CACHE_DIR
+    apt-get update && apt-get install -y --no-install-recommends \
+        git curl ca-certificates \
+        && rm -rf /var/lib/apt/lists/*
+    pip install --no-cache-dir --upgrade pip
+    pip install --no-cache-dir -r /app/requirements.txt
+    mkdir -p /app/outputs
+
+%runscript
+    cd /app
+    exec python app.py "$@"

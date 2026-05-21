@@ -1,0 +1,37 @@
+{
+  "run_id": "run_20260312-164823",
+  "goal": "Segment lung infection",
+  "status": "need_clarification",
+  "user_raw": "Segment lung infection",
+  "intent_summary": "",
+  "ambiguity": {},
+  "image": {
+    "modality": {
+      "label": "unknown",
+      "confidence": null,
+      "notes": ""
+    },
+    "anatomy": {
+      "region": "unknown",
+      "confidence": null,
+      "notes": ""
+    }
+  },
+  "task_intent": {},
+  "evidence": [],
+  "questions": [
+    "Please provide a valid JSON structure with the requested information."
+  ],
+  "steps": [],
+  "message_to_user": "",
+  "raw_text_head": "{\n  \"status\": \"ok\",\n  \"user\": {\n    \"raw_input\": \"Segment lung infection\",\n    \"intent_summary\": \"Segment lung lesion (ground-glass opacities)\",\n    \"ambiguity\": {\n      \"present\": true,\n      \"resolved_by_image\": true,\n      \"notes\": \"Ground-glass opacities were identified in the lung regions, indicating a possible infection.\"\n    }\n  },\n  \"image\": {\n    \"modality\": {\n      \"label\": \"CT\",\n      \"confidence\": 0.95,\n      \"notes\": \"The image is a CT scan with clear visualization of lung structures and ground-glass opacities.\"\n    },\n    \"anatomy\": {\n      \"region\": \"lung\",\n      \"confidence\": 0.95,\n      \"notes\": \"The image shows multiple lung regions with ground-glass opacities, consistent with lung infection.\"\n    }\n  },\n  \"task_intent\": {\n    \"type\": \"segmentation\",\n    \"target\": \"lung lesion (ground-glass opacities)\",\n    \"constraints\": \"3D\"\n  },\n  \"evidence\": {\n    \"summary\": [\n      \"The image is a CT scan with clear visualization of",
+  "decision": {
+    "tool": null,
+    "action": "need_clarification",
+    "reason": "The planner's response did not provide a valid JSON structure.",
+    "questions": [
+      "Please provide a valid JSON structure with the requested information."
+    ],
+    "params": {}
+  }
+}

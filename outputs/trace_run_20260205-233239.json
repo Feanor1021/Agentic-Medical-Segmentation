@@ -1,0 +1,35 @@
+{
+  "run_id": "run_20260205-233239",
+  "events": [
+    {
+      "t": 1770327159.511511,
+      "msg": "Run clicked"
+    },
+    {
+      "t": 1770327159.5115206,
+      "msg": "Calling Hulu /infer",
+      "extra": {
+        "url": "http://localhost:8000/infer"
+      }
+    }
+  ],
+  "timing": {
+    "total_s": 30.739953756332397
+  },
+  "inputs": {
+    "path": "/tmp/yardimf/31604482/gradio/6595d30dbffa49b680581911c7c09484592b9ce76ef67b293ebeabdfc4becebb/coronacases_org_003.nii",
+    "axis": 2,
+    "z": 99,
+    "mode": "3D volume",
+    "n_slices": 8,
+    "instruction": "is it lung or kidney ? is this ultrasound or mri or what is ths shit I wanna do segmentation for tumor or some thing like that dude  type shi"
+  },
+  "vlm": {
+    "response_meta": {
+      "model_id": "ZJU-AI4H/Hulu-Med-7B",
+      "device": "cuda"
+    },
+    "text_head": "{\n  \"status\": \"ok\",\n  \"user\": {\n    \"raw_input\": \"is it lung or kidney ? is this ultrasound or mri or what is ths shit I wanna do segmentation for tumor or some thing like that dude  type shi \",\n    \"intent_summary\": \"Determine if the user wants to segment a tumor in the lung or kidney using CT or MRI.\",\n    \"normalized_terms\": {\n      \"modality_hint\": \"CT\",\n      \"anatomy_hint\": \"lung\",\n      \"target\": \"tumor\",\n      \"task_type\": \"segmentation\"\n    }\n  },\n  \"image\": {\n    \"modality\": {\"label\":\"CT\",\"confidence\":0.9,\"notes\":\"\"},\n    \"anatomy\":  {\"region\":\"lungs\",\"confidence\":0.8,\"notes\":\"\"}\n  },\n  \"task_intent\": {\n    \"type\":\"segmentation\",\n    \"target\":\"tumor\",\n    \"constraints\":\"\"\n  },\n  \"evidence\": {\n    \"summary\":[\n      \"The image shows a CT scan of the chest with lung anatomy visible.\",\n      \"The user is asking about segmentation for a tumor.\"\n    ]\n  },\n  \"plan\": [\n    {\n      \"id\": 1,\n      \"name\": \"Analyze CT scan\",\n      \"goal\": \"Identify the target region and modality from the image.\",\n      \"inputs\": [\"<NIfTI volume>\"],\n      \"outputs\": [\"<modality label>\", \"<anatomy region>\"]\n    },\n    {\n      \"id\": 2,\n      \"name\": \"Segment tumor\",\n      \"goal\": \"Perform segmentation on the identified target region.\",\n      \"inputs\": [\"<modality label>\", \"<anatomy region>\"],\n      \"outputs\": [\"<segmented tumor mask>\"]\n    }\n  ],\n  \"message_to_user\": \"We will analyze the CT scan of your lungs to segment any tumors present. Please confirm if you want to proceed with this task.\",\n  \"questions\": []\n}",
+    "parsed_json_found": true
+  }
+}
