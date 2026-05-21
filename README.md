@@ -321,5 +321,4 @@ See `orchestrator/requirements.txt` and `services/<service>/requirements.txt` fo
 
 Furkan Yardımcı · Haris Khan · Csóti Balázs Gábor · Leskelä Otso
 
-Instructor: Jiancheng Yang | Aalto University, ELEC-E8004 Project Work 2026#   d e n e m e  
- 
+Instructor: Jiancheng Yang | Aalto University, ELEC-E8004 Project Work 2026
