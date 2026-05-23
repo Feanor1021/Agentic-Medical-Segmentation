@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # =============================================================================
-# download.py  —  Validation Dataset Downloader (wget tabanlı)
+# download.py  —  Validation Dataset Downloader (wget-based)
 #
-# MSD (Medical Segmentation Decathlon) ve diğer public veri setlerini
-# indirir, cases.csv'yi oluşturur.
+# Downloads MSD (Medical Segmentation Decathlon) and other public datasets,
+# and builds cases.csv.
 #
 # Desteklenen veri setleri:
 #   TotalSeg  : Task03 Liver (organ), Task09 Spleen
@@ -12,7 +12,7 @@
 #   BiomedParse: COVID-19 CT, CHAOS MRI, Task05 Prostate, Task04 Hippocampus,
 #                Task02 Heart
 #
-# Çalıştırma:
+# Usage:
 #   python3 download.py --output_dir /scratch/.../val_data
 #   python3 download.py --output_dir /scratch/.../val_data --total_cases 500
 # =============================================================================

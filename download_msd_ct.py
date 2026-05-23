@@ -3,21 +3,21 @@
 # download_msd_ct.py  —  MSD CT Dataset Downloader
 #
 # Sadece CT veri setlerini (Task03 Liver, Task09 Spleen, Task06 Lung) indirir
-# ve doğru gt_label_value kolonlarıyla cases.csv oluşturur.
+# and builds cases.csv with correct gt_label_value columns.
 #
-# Hedef dağılım:
+# Target distribution:
 #   totalseg  liver       : 100 case  — Task03, gt_label_value=1
-#   totalseg  spleen      : ~60 case  — Task09, gt_label_value=1 (tamamı)
+#   totalseg  spleen      : ~60 cases — Task09, gt_label_value=1 (all)
 #   voxtell   liver_tumor : 100 case  — Task03, gt_label_value=2
-#   voxtell   lung_tumor  : ~96 case  — Task06, gt_label_value=1 (tamamı)
+#   voxtell   lung_tumor  : ~96 cases — Task06, gt_label_value=1 (all)
 #
-# GT DOSYALARI BÖLÜNMEZ:
-#   Task03'ün orijinal GT maskı (label 1=liver, 2=tumor) olduğu gibi kalır.
-#   Aynı görüntü hem "liver" hem "liver_tumor" satırı olarak CSV'ye girer.
-#   validate_pipeline gt_label_value kolonuna bakarak doğru label üzerinden
-#   Dice hesaplar (label=2 yoksa tümör satırı CSV'ye eklenmez).
+# GT FILES ARE NOT SPLIT:
+#   Task03's original GT mask (label 1=liver, 2=tumor) is kept as-is.
+#   The same image is added as both a "liver" and "liver_tumor" row in the CSV.
+#   validate_pipeline reads gt_label_value to compute Dice on the correct label
+#   (if label=2 is absent the tumour row is skipped).
 #
-# Çalıştırma:
+# Usage:
 #   python download_msd_ct.py --output_dir /scratch/.../val_data
 #   python download_msd_ct.py --output_dir /scratch/.../val_data --no_label_check
 #   python download_msd_ct.py --output_dir /scratch/.../val_data --skip_download
@@ -96,20 +96,20 @@ def wget_download(url: str, dest: str, desc: str = "") -> bool:
     """Download with wget; skip if already present and valid."""
     if os.path.exists(dest):
         if dest.endswith(".tar") and not is_valid_tar(dest):
-            print(f"  [bozuk] {Path(dest).name} siliniyor, yeniden indiriliyor...")
+            print(f"  [bozuk] {Path(dest).name} siliniyor, yeniden Downloading ...")
             os.remove(dest)
         else:
             print(f"  [skip]  {desc or Path(dest).name} zaten mevcut")
             return True
     os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
-    print(f"  ⬇  {desc or url.split('/')[-1]} indiriliyor...")
+    print(f"  ⬇  {desc or url.split('/')[-1]} Downloading ...")
     r = subprocess.run(
         ["wget", "-q", "--show-progress", "--tries=3", "--retry-connrefused",
          "-O", dest, url],
         stderr=subprocess.STDOUT,
     )
     if r.returncode != 0:
-        print(f"  HATA: wget başarısız → {url}")
+        print(f"  ERROR: wget failed → {url}")
         if os.path.exists(dest):
             os.remove(dest)
         return False
@@ -136,7 +136,7 @@ def extract_tar(src: str, dst: str, max_cases: int = None):
             labels = labels[:max_cases]
         t.extractall(dst, members=others + images + labels)
     os.remove(src)
-    print(f"  🗑  Tar silindi: {Path(src).name}")
+    print(f"  🗑  Tar removed: {Path(src).name}")
 
 
 def find_paired(image_dir: str, label_dir: str) -> List[Tuple[str, str]]:
@@ -185,18 +185,18 @@ def download_task(base_dir: str, task: str, max_cases: int = None) -> List[Tuple
                 extract_tar(tar_path, base_dir, max_cases=max_cases)
                 break
             except Exception as e:
-                print(f"  Extract hatası: {e}")
+                print(f"  Extract error: {e}")
                 if os.path.exists(tar_path):
                     os.remove(tar_path)
                 if attempt == 1:
                     return []
     else:
-        print(f"  [skip]  {task} klasörü zaten mevcut")
+        print(f"  [skip]  {task} directory already exists")
     pairs = find_paired(
         os.path.join(task_dir, "imagesTr"),
         os.path.join(task_dir, "labelsTr"),
     )
-    print(f"  ✓ {len(pairs)} çift")
+    print(f"  ✓ {len(pairs)} pairs found")
     return pairs
 
 
@@ -326,7 +326,7 @@ def write_csv(rows: List[dict], path: str):
         w = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         w.writeheader()
         w.writerows(rows)
-    print(f"\n✅ CSV yazıldı: {path}  ({len(rows)} satır)")
+    print(f"\n✅ CSV written: {path}  ({len(rows)} rows)")
 
 
 # ---------------------------------------------------------------------------
@@ -336,7 +336,7 @@ def write_csv(rows: List[dict], path: str):
 def validate_csv(csv_path: str) -> bool:
     """Check that all paths exist and all tools/label values are valid."""
     print(f"\n{'='*60}")
-    print(f"CSV Doğrulama: {csv_path}")
+    print(f"CSV Validation: {csv_path}")
     print(f"{'='*60}")
 
     VALID_TOOLS = {"totalseg", "voxtell", "biomedparse"}
@@ -358,38 +358,38 @@ def validate_csv(csv_path: str) -> bool:
         gt_lv = row.get("gt_label_value", "").strip()
 
         if not nifti:
-            errors.append(f"[{cid}] nifti_path boş")
+            errors.append(f"[{cid}] nifti_path is empty")
         elif not os.path.exists(nifti):
             errors.append(f"[{cid}] nifti_path yok: {nifti}")
 
         if not gt:
-            warnings.append(f"[{cid}] gt_mask_path boş")
+            warnings.append(f"[{cid}] gt_mask_path is empty")
         elif not os.path.exists(gt):
             errors.append(f"[{cid}] gt_mask_path yok: {gt}")
 
         if tool not in VALID_TOOLS:
-            errors.append(f"[{cid}] geçersiz tool: '{tool}'")
+            errors.append(f"[{cid}] invalid tool: '{tool}'")
 
         if gt_lv and not gt_lv.isdigit():
-            errors.append(f"[{cid}] gt_label_value sayı değil: '{gt_lv}'")
+            errors.append(f"[{cid}] gt_label_value is not an integer: '{gt_lv}'")
 
         tool_c[tool] = tool_c.get(tool, 0) + 1
-        struct_c[struc or "(boş)"] = struct_c.get(struc or "(boş)", 0) + 1
+        struct_c[struc or "(empty)"] = struct_c.get(struc or "(empty)", 0) + 1
         ds_c[row.get("dataset", "")] = ds_c.get(row.get("dataset", ""), 0) + 1
 
-    print(f"\nToplam : {len(rows)}")
-    print(f"\nTool dağılımı:")
+    print(f"\nTotal  : {len(rows)}")
+    print(f"\nTool distribution:")
     for t, c in sorted(tool_c.items()):
         print(f"  {t:<15}: {c:>4}")
-    print(f"\nStructure dağılımı:")
+    print(f"\nStructure distribution:")
     for s, c in sorted(struct_c.items()):
         print(f"  {s:<22}: {c:>4}")
-    print(f"\nDataset dağılımı:")
+    print(f"\nDataset distribution:")
     for d, c in sorted(ds_c.items()):
         print(f"  {d:<30}: {c:>4}")
 
     if warnings:
-        print(f"\n⚠  {len(warnings)} uyarı")
+        print(f"\n⚠  {len(warnings)} warning(s)")
         for w in warnings[:10]:
             print(f"   {w}")
 
@@ -397,10 +397,10 @@ def validate_csv(csv_path: str) -> bool:
         print(f"\n❌ {len(errors)} hata")
         for e in errors[:20]:
             print(f"   {e}")
-        print("\n❌ Doğrulama BAŞARISIZ")
+        print("\n❌ Validation FAILED")
         return False
 
-    print(f"\n✅ Doğrulama başarılı")
+    print(f"\n✅ Validation passed")
     return True
 
 
@@ -409,16 +409,16 @@ def validate_csv(csv_path: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="MSD Task03+Task09+Task06 indir, cases.csv oluştur")
+    parser = argparse.ArgumentParser(description="Download MSD Task03+Task09+Task06 and build cases.csv")
     parser.add_argument("--output_dir", default="/scratch/project_2016517/furkan/val_data")
-    parser.add_argument("--liver_n", type=int, default=100, help="Liver organ (label=1) case sayısı")
-    parser.add_argument("--liver_tumor_n", type=int, default=100, help="Liver tumor (label=2) case sayısı")
+    parser.add_argument("--liver_n", type=int, default=100, help="Number of liver organ (label=1) cases")
+    parser.add_argument("--liver_tumor_n", type=int, default=100, help="Number of liver tumour (label=2) cases")
     parser.add_argument("--no_label_check", action="store_true",
-                        help="nibabel label kontrolünü atla — hızlı ama tümörsüz case girebilir")
+                        help="Skip nibabel label check — faster but tumour-free cases may be included")
     parser.add_argument("--skip_download", action="store_true",
-                        help="İndirme adımını atla, sadece CSV üret")
+                        help="Skip download, only rebuild CSV from existing files")
     parser.add_argument("--validate_only", action="store_true",
-                        help="Sadece mevcut cases.csv'yi doğrula")
+                        help="Only validate the existing cases.csv without downloading")
     parser.add_argument("--csv_name", default="cases.csv")
     args = parser.parse_args()
 
@@ -429,7 +429,7 @@ def main():
 
     if args.validate_only:
         if not os.path.exists(csv_path):
-            print(f"❌ CSV bulunamadı: {csv_path}")
+            print(f"❌ CSV not found: {csv_path}")
             sys.exit(1)
         sys.exit(0 if validate_csv(csv_path) else 1)
 
@@ -438,34 +438,34 @@ def main():
         spleen_pairs = download_task(base_dir, "Task09_Spleen")
         lung_pairs = download_task(base_dir, "Task06_Lung")
     else:
-        print("\n[skip_download] Mevcut dosyalardan çiftler toplanıyor...")
+        print("\n[skip_download] Collecting pairs from existing files...")
         liver_pairs = find_paired(f"{base_dir}/Task03_Liver/imagesTr", f"{base_dir}/Task03_Liver/labelsTr")
         spleen_pairs = find_paired(f"{base_dir}/Task09_Spleen/imagesTr", f"{base_dir}/Task09_Spleen/labelsTr")
         lung_pairs = find_paired(f"{base_dir}/Task06_Lung/imagesTr", f"{base_dir}/Task06_Lung/labelsTr")
-        print(f"  Task03 Liver:  {len(liver_pairs)} çift")
-        print(f"  Task09 Spleen: {len(spleen_pairs)} çift")
-        print(f"  Task06 Lung:   {len(lung_pairs)} çift")
+        print(f"  Task03 Liver:  {len(liver_pairs)} pairs")
+        print(f"  Task09 Spleen: {len(spleen_pairs)} pairs")
+        print(f"  Task06 Lung:   {len(lung_pairs)} pairs")
 
     print(f"\n{'='*60}")
-    print("Rows oluşturuluyor...")
+    print("Building rows...")
     print(f"{'='*60}")
     if check:
-        print("ℹ  Label kontrolü AKTİF — yavaş ama güvenli\n")
+        print("ℹ  Label check ENABLED — slower but safe\n")
     else:
-        print("⚡ Label kontrolü KAPALI (--no_label_check)\n")
+        print("⚡ Label check DISABLED (--no_label_check)\n")
 
     rows = []
     print(f"Task03 Liver  → liver:{args.liver_n}  liver_tumor:{args.liver_tumor_n}")
     rows += build_liver_rows(liver_pairs, args.liver_n, args.liver_tumor_n, check)
-    print(f"\nTask09 Spleen → tamamı")
+    print(f"\nTask09 Spleen → all cases")
     rows += build_spleen_rows(spleen_pairs, limit=9999, check_labels=check)
-    print(f"\nTask06 Lung   → tamamı")
+    print(f"\nTask06 Lung   → all cases")
     rows += build_lung_rows(lung_pairs, limit=9999, check_labels=check)
 
     tc = Counter(r["tool"] for r in rows)
     sc = Counter(r["structure"] for r in rows)
     print(f"\n{'='*60}")
-    print(f"ÖZET — Toplam {len(rows)} case")
+    print(f"SUMMARY — Total {len(rows)} cases")
     print(f"  totalseg : {tc.get('totalseg', 0):>4}  (liver:{sc.get('liver', 0)}  spleen:{sc.get('spleen', 0)})")
     print(f"  voxtell  : {tc.get('voxtell', 0):>4}  (liver_tumor:{sc.get('liver_tumor', 0)}  lung_tumor:{sc.get('lung_tumor', 0)})")
     print(f"{'='*60}")
@@ -473,7 +473,7 @@ def main():
     write_csv(rows, csv_path)
     ok = validate_csv(csv_path)
 
-    print(f"\nSonraki adımlar:")
+    print(f"\nNext steps:")
     print(f"  python validate_pipeline.py --dataset_csv {csv_path} --output_dir {base_dir}/results")
     print(f"  python validate_pipeline.py --dataset_csv {csv_path} --output_dir {base_dir}/results_totalseg --force_tool totalseg --tool_filter totalseg")
     print(f"  python validate_pipeline.py --dataset_csv {csv_path} --output_dir {base_dir}/results_voxtell  --force_tool voxtell  --tool_filter voxtell")

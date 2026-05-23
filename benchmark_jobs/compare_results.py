@@ -3,25 +3,25 @@
 # compare_results.py
 #
 # Her tool'un validation sonuçlarını (results.jsonl) okuyup karşılaştırmalı
-# bir tablo olarak yazdırır.
+# and prints a comparison table.
 #
-# Beklenen dizin yapısı
+# Expected directory structure
 # ---------------------
 #   BASE/results_totalseg/results.jsonl
 #   BASE/results_voxtell/results.jsonl
 #   BASE/results_biomedparse/results.jsonl
 #   BASE/results/results.jsonl              (agentic pipeline)
 #
-# Her results.jsonl satırı: {"dice": 0.85, ...} formatında JSON.
+# Each results.jsonl line: {"dice": 0.85, ...} JSON format.
 #
-# Çıktı sütunları
+# Output columns
 # ---------------
-#   Cases   — toplam case sayısı
-#   Success — Dice > 0.01 olan case sayısı / toplam
-#   MeanDice — başarılı case'lerin ortalama Dice skoru
-#   Median  — başarılı case'lerin median Dice skoru
+#   Cases   — total number of cases
+#   Success — cases with Dice > 0.01 / total
+#   MeanDice — mean Dice of successful cases
+#   Median  — median Dice of successful cases
 #
-# Kullanım
+# Usage
 # --------
 #   python compare_results.py
 # =============================================================================

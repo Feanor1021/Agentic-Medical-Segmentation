@@ -2,23 +2,23 @@
 # =============================================================================
 # dicom2nifti_chaos.py  —  Genel DICOM → NIfTI Converter
 #
-# val_data altındaki tüm DICOM klasörlerini bulur, NIfTI'ye çevirir,
-# ve cases.csv için hazır satırlar oluşturur.
+# Finds all DICOM directories under the scan root, converts them to NIfTI,
+# and generates rows ready for cases.csv.
 #
-# CHAOS veri setindeki Ground klasörlerini de tarar: PNG ground-truth
-# maskları varsa onları da NIfTI'ye çevirir.
+# Also scans Ground directories in the CHAOS dataset: PNG ground-truth
+# masks are converted to NIfTI if present.
 #
-# Çalıştırma:
+# Usage:
 #   python3 dicom2nifti_chaos.py \
 #       --scan_dir  /scratch/.../val_data \
 #       --output_dir /scratch/.../val_data/converted_nifti \
 #       --csv_out   /scratch/.../val_data/converted_cases.csv
 #
-# Argümanlar:
-#   --scan_dir   : taranacak kök dizin
-#   --output_dir : çevrilen NIfTI dosyalarının yazılacağı dizin
-#   --csv_out    : oluşturulacak CSV dosyası
-#   --append_to  : çıktı satırlarını mevcut bir CSV'ye ekle
+# Arguments:
+#   --scan_dir   : root directory to scan
+#   --output_dir : directory for converted NIfTI files
+#   --csv_out    : output CSV file path
+#   --append_to  : append output rows to an existing CSV
 # =============================================================================
 
 import argparse
@@ -200,7 +200,7 @@ def main():
         else:
             print("skip", end='')
 
-        # GT: aynı seviyede Ground klasörü var mı? (CHAOS format)
+        # GT: check for a Ground directory at the same level (CHAOS format)
         gt_path = ""
         ground_dir = os.path.join(os.path.dirname(dicom_dir), 'Ground')
         if os.path.isdir(ground_dir):

@@ -4,28 +4,28 @@
 #
 # Agentic Segmentation Pipeline — Validation Script
 #
-# Her CSV satırı için pipeline'ı çalıştırır (VLM → Planner → Critic → Tool),
-# GT maskı ile Dice skoru hesaplar ve sonuçları JSONL olarak kaydeder.
+# Runs the pipeline for each CSV row (VLM → Planner → Critic → Tool),
+# computes Dice against GT mask, and saves results as JSONL.
 #
-# CSV format (her satır bir case):
+# CSV format (one row per case):
 #   nifti_path, gt_mask_path, instruction, tool, structure, [gt_label_value]
 #
-# Çalıştırma:
+# Usage:
 #   python validate_pipeline.py --dataset_csv cases.csv --output_dir ./val_results
 #
-# Argümanlar:
-#   --dataset_csv   : case listesi CSV dosyası (zorunlu)
-#   --output_dir    : sonuçların yazılacağı dizin (default: ./val_results)
-#   --max_cases     : çalıştırılacak maksimum case sayısı
-#   --tool_filter   : sadece belirli tool'un case'lerini çalıştır
-#   --force_tool    : agent'i bypass edip tüm case'lerde bu tool'u kullan
+# Arguments:
+#   --dataset_csv   : CSV file with case list (required)
+#   --output_dir    : directory for results (default: ./val_results)
+#   --max_cases     : maximum number of cases to run
+#   --tool_filter   : only run cases for this specific tool
+#   --force_tool    : bypass agent and force this tool for all cases
 #
-# Çıktılar:
+# Outputs:
 #   output_dir/results.jsonl  — her satır bir case sonucu (JSON)
 #   output_dir/summary.json   — toplam istatistikler
-#   output_dir/masks/<case_id>/<tool>/  — üretilen mask dosyaları
+#   output_dir/masks/<case_id>/<tool>/  — generated mask files
 #
-# Servis URL'leri (env değişkenleri):
+# Service URLs (environment variables):
 #   VLM_URL, LLM_URL, TOOL_URL_TOTALSEG, TOOL_URL_VOXTELL, TOOL_URL_BIOMEDPARSE
 # =============================================================================
 
@@ -45,7 +45,7 @@ import nibabel as nib
 import requests
 from scipy.ndimage import zoom
 
-# Servis URL'leri — env'den al, yoksa localhost default'ları kullan
+# Service URLs — read from env, fall back to localhost defaults
 VLM_URL = os.environ.get("VLM_URL", "http://127.0.0.1:8001")
 LLM_URL = os.environ.get("LLM_URL", "http://127.0.0.1:8002")
 TOOL_URL_TOTALSEG = os.environ.get("TOOL_URL_TOTALSEG", "http://127.0.0.1:8011")
@@ -262,8 +262,8 @@ def run_case(
     nifti_path: str,
     gt_mask_path: str,
     instruction: str,
-    expected_tool: str,      # CSV'deki beklenen tool (sadece accuracy ölçümü için)
-    structure: str,          # totalseg için yapı adı
+    expected_tool: str,      # expected tool from CSV (used only for accuracy measurement)
+    structure: str,          # structure name for totalseg
     out_root: str,
     force_tool: str = None,  # agent'i bypass et, bu tool'u kullan
     gt_label_value: int = None,  # None → find_best_gt_label, int → sabit label
@@ -285,7 +285,7 @@ def run_case(
         out_dir = os.path.join(out_root, case_id)
         os.makedirs(out_dir, exist_ok=True)
 
-        # 1. VLM — force_tool modunda atlanır
+        # 1. VLM — skipped in force_tool mode
         if force_tool:
             tool = force_tool
             result["selected_tool"] = tool
@@ -309,8 +309,8 @@ def run_case(
             vlm_text = vlm_resp.get("text", "")
             parsed = extract_first_json(vlm_text)
 
-        # 2. Tool seçimi — VLM → Planner → Critic üzerinden
-        # expected_tool sadece accuracy ölçümü için saklanır, seçimde kullanılmaz
+        # 2. Tool selection — via VLM → Planner → Critic
+        # expected_tool is stored for accuracy measurement only, not used for routing
         import sys as _sys, os as _os
         _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), '..', 'orchestrator'))
         _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), 'orchestrator'))
@@ -374,7 +374,7 @@ def run_case(
                 else:
                     params["modality"] = "CT"
 
-        # 4. Tool çağır
+        # 4. Call tool
         t1 = time.time()
         tool_out = call_tool(tool, nifti_path, os.path.join(out_dir, tool), params)
         result["timing"]["tool_s"] = round(time.time() - t1, 2)
@@ -384,7 +384,7 @@ def run_case(
             result["error"] = tool_out.get("message")
             return result
 
-        # 5. Instruction'a en uygun pred mask dosyasını bul
+        # 5. Find best matching prediction mask for the instruction
         mask_path = tool_out.get("mask_path")
         pred_mask = find_best_pred_mask(mask_path, instruction)
 
@@ -392,7 +392,7 @@ def run_case(
             result["error"] = "Could not load prediction mask"
             return result
 
-        # 6. GT mask yükle ve Dice hesapla
+        # 6. Load GT mask and compute Dice
         if gt_mask_path and os.path.exists(gt_mask_path):
             gt_raw = load_nifti(gt_mask_path)
             if gt_raw is not None:

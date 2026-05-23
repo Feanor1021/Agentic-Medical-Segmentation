@@ -2,21 +2,21 @@
 # =============================================================================
 # run_all.sh
 #
-# Servisleri doğrudan Python ile başlatır (Apptainer olmadan).
-# Geliştirme/debug ortamı için kullanılır; production'da run_puhti.sh kullanın.
+# Starts services directly with Python (without Apptainer).
+# Use for development/debug only; use run_puhti.sh for production.
 #
-# Başlatılan servisler:
+# Services started:
 #   VLM          : services/vlm/api.py        → port 8001
 #   LLM          : services/llm/server.py     → port 8002
 #   Orchestrator : orchestrator/app.py        → port 7860
 #
-# Log dosyaları: logs/vlm.log, logs/llm.log, logs/orchestrator.log
+# Logs: logs/vlm.log, logs/llm.log, logs/orchestrator.log
 # =============================================================================
 
 cd /scratch/project_2016517/furkan/agentic-seg
 source agentic/bin/activate
 
-# Eski processleri öldür
+# Kill stale processes
 pkill -f "api.py" 2>/dev/null
 pkill -f "server:app" 2>/dev/null
 pkill -f "app.py" 2>/dev/null

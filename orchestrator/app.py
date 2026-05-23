@@ -334,10 +334,10 @@ def on_run(state, axis, z, mode, n_slices, instruction, user_override=False):
                     need_clarification response
     """
     if not state or "vol" not in state:
-        return state, None, "Hata: önce NIfTI yükle ve Load bas.", "{}", "{}", gr.update(choices=[], value=None)
+        return state, None, "Error: please upload and load a NIfTI file first.", "{}", "{}", gr.update(choices=[], value=None)
     if not instruction or not str(instruction).strip():
         preview, _ = on_preview_change(state, axis, z)
-        return state, preview, "Hata: instruction boş.", "{}", "{}", gr.update(choices=[], value=None)
+        return state, preview, "Error: instruction is empty.", "{}", "{}", gr.update(choices=[], value=None)
 
     vol = state["vol"]
     run_id = now_run_id()

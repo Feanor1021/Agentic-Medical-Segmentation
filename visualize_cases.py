@@ -4,17 +4,17 @@
 #
 # Segmentation Overlay Visualization
 #
-# CT slice üzerinde GT + 4 tool'un mask overlay'i.
-# Her case için 1 satır, 6 sütun: [CT] [GT] [TotalSeg] [VoxTell] [BiomedParse] [Agentic]
+# CT slice with GT + 4 tool mask overlays.
+# 1 row per case, 6 columns: [CT] [GT] [TotalSeg] [VoxTell] [BiomedParse] [Agentic]
 #
-# Çıktılar:
+# Outputs:
 #   outputs/<case_name>.png      — her case için ayrı PNG
 #   outputs/combined_overlay.png — 3 case'i üst üste gösteren birleşik figür
 #
-# Kullanım:
+# Usage:
 #   python visualize_cases.py
 #
-# Path'leri değiştirmek için VAL_DIR ve OUT_DIR sabitlerini düzenle.
+# Edit VAL_DIR and OUT_DIR constants to change paths.
 # =============================================================================
 
 import numpy as np
@@ -25,18 +25,18 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import os
 
-# ── Path sabitleri — gerekirse değiştir ──────────────────────────────────────
+# ── Path constants — edit if needed ─────────────────────────────────────────
 VAL_DIR = "/scratch/project_2016517/furkan/val_data"
 RES_DIR = VAL_DIR   # results_totalseg, results_voxtell, results_biomedparse, results burada
 OUT_DIR = "/scratch/project_2016517/furkan/agentic-seg/outputs"
 os.makedirs(OUT_DIR, exist_ok=True)
 
-# ── Renk paleti (tool başına sabit renk) ─────────────────────────────────────
-C_GT = '#FFD700'   # altın — Ground Truth
-C_TS = '#5C9EB8'   # çelik mavisi — TotalSegmentator
-C_VX = '#E07A5F'   # terra cotta kırmızı — VoxTell
-C_BM = '#F2CC8F'   # sıcak kum — BiomedParse
-C_AG = '#81B29A'   # soft mint yeşil — Agentic Pipeline
+# ── Color palette (one fixed color per tool) ─────────────────────────────────
+C_GT = '#FFD700'   # gold          — Ground Truth
+C_TS = '#5C9EB8'   # steel blue    — TotalSegmentator
+C_VX = '#E07A5F'   # terra cotta   — VoxTell
+C_BM = '#F2CC8F'   # warm sand     — BiomedParse
+C_AG = '#81B29A'   # soft mint     — Agentic Pipeline
 
 plt.rcParams.update({
     'font.family': 'serif',
@@ -182,16 +182,16 @@ for case in CASES:
     gt_vol = load_nifti(case["gt_path"])
 
     if ct_vol is None:
-        print(f"  ⚠ CT bulunamadı: {case['ct_path']}")
+        print(f"  ⚠ CT not found: {case['ct_path']}")
         continue
     if gt_vol is None:
-        print(f"  ⚠ GT bulunamadı: {case['gt_path']}")
+        print(f"  ⚠ GT not found: {case['gt_path']}")
         continue
 
     gt_binary = (gt_vol == case["gt_label"]).astype(np.float32)
     best_slice = find_best_slice(gt_binary)
     if best_slice is None:
-        print(f"  ⚠ GT'de label={case['gt_label']} bulunamadı")
+        print(f"  ⚠ Label {case['gt_label']} not found in GT")
         continue
 
     print(f"  CT shape: {ct_vol.shape}")
@@ -290,4 +290,4 @@ plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor='black')
 plt.close()
 print(f"  >> Saved: {save_path}")
 
-print("\n  ✅ Visualization tamamlandı!")
+print("\n  ✅ Visualization complete!")

@@ -2,14 +2,14 @@
 # =============================================================================
 # val_totalseg_job.sh
 #
-# Puhti SLURM job: TotalSegmentator servisini ayağa kaldırır ve validation çalıştırır.
+# Puhti SLURM job: starts TotalSegmentator service and runs validation.
 #
-# Adımlar:
-#   1. Çalışan python/apptainer proseslerini temizler
-#   2. run_puhti.sh ile servisleri başlatır
-#   3. TotalSegmentator health check geçene kadar bekler
-#   4. validate_pipeline.py'yi force_tool=totalseg ile çalıştırır
-#   5. Sonuçları (Dice skoru, başarı oranı) özetler
+# Steps:
+#   1. Kill stale python/apptainer processes
+#   2. Start services via run_puhti.sh
+#   3. Wait until TotalSegmentator health check passes
+#   4. Run validate_pipeline.py with force_tool=totalseg
+#   5. Print result summary (Dice score, success rate)
 # =============================================================================
 #SBATCH --job-name=val_totalseg
 #SBATCH --account=project_2016517
@@ -25,20 +25,20 @@
 cd /scratch/project_2016517/furkan/agentic-seg
 source agentic/bin/activate
 
-echo "[1/3] Temizlik..."
+echo "[1/3] Cleanup..."
 pkill -u $USER python; pkill -u $USER apptainer; sleep 2
 
-echo "[2/3] Servisler baslatiliyor..."
+echo "[2/3] Starting services..."
 bash run_puhti.sh
 
-echo "Servis hazir olana kadar bekleniyor..."
+echo "Waiting for service to be ready..."
 until curl -s http://127.0.0.1:8011/health | grep -q "ok"; do
-    sleep 10; echo "totalseg bekleniyor..."
+    sleep 10; echo "waiting for totalseg..."
 done
-echo "totalseg hazir!"
+echo "totalseg ready!"
 sleep 10
 
-echo "[3/3] Validation (force_tool=totalseg)..."
+echo "[3/3] Running validation (force_tool=totalseg)..."
 DATASET_CSV="/scratch/project_2016517/furkan/val_data/cases.csv"
 OUTPUT_DIR="/scratch/project_2016517/furkan/val_data/results_totalseg"
 mkdir -p $OUTPUT_DIR
@@ -49,7 +49,7 @@ python -u validate_pipeline.py \
     --force_tool totalseg \
  2>&1
 
-# Sonuçları özetle: toplam case, başarılı segmentasyon sayısı, mean/nonzero Dice
+# Summarise: total cases, successful segmentations, mean/nonzero Dice
 python -c "
 import json, numpy as np, os
 path = '$OUTPUT_DIR/results.jsonl'
@@ -58,8 +58,8 @@ all_dice = [r['dice'] for r in results if r.get('dice') is not None]
 nonzero = [d for d in all_dice if d > 0.01]
 print('='*40)
 print('Tool: totalseg')
-print(f'Toplam: {len(results)}')
-print(f'Basarili: {len(nonzero)}/{len(results)}')
+print(f'Total: {len(results)}')
+print(f'Successful: {len(nonzero)}/{len(results)}')
 print(f'Mean Dice: {np.mean(all_dice) if all_dice else 0:.4f}')
 print(f'Mean Dice>0.01: {np.mean(nonzero) if nonzero else 0:.4f}')
 print('='*40)

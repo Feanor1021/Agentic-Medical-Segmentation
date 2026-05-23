@@ -2,14 +2,14 @@
 # =============================================================================
 # run_puhti.sh
 #
-# Puhti HPC kümesinde tüm servisleri Apptainer ile başlatır.
-# SIF dosyaları yoksa HuggingFace'den otomatik olarak indirilir.
+# Starts all services on Puhti HPC cluster using Apptainer.
+# Missing SIF files are automatically downloaded from HuggingFace.
 #
-# Kullanım:
+# Usage:
 #   cp .env.example .env   # bir kez yap, .env'i doldur
 #   bash run_puhti.sh
 #
-# Servisler ve portlar (.env'den okunur, default'lar aşağıdadır):
+# Services and ports (read from .env, defaults shown below):
 #   VLM           : 8001  (GPU 0)
 #   LLM           : 8002  (GPU 1)
 #   TotalSeg      : 8011  (GPU 0)
@@ -17,30 +17,30 @@
 #   BiomedParse   : 8013  (GPU 1)
 #   Orchestrator  : 7860
 #
-# Log dosyaları : logs/<servis>.log
-# PID dosyaları : logs/<servis>.pid
+# Logs : logs/<service>.log
+# PIDs : logs/<service>.pid
 # =============================================================================
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ---------------------------------------------------------------------------
-# .env yükle
+# Load .env
 # ---------------------------------------------------------------------------
 ENV_FILE="${ROOT_DIR}/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
-    echo "[ERROR] .env dosyası bulunamadı."
-    echo "  Önce şunu çalıştır: cp .env.example .env"
-    echo "  Ardından .env içindeki değerleri doldur."
+    echo "[ERROR] .env file not found."
+    echo "  Run first: cp .env.example .env"
+    echo "  Then fill in your values."
     exit 1
 fi
 set -a; source "$ENV_FILE"; set +a
 
 # ---------------------------------------------------------------------------
-# Zorunlu değişken kontrolü
+# Required variable check
 # ---------------------------------------------------------------------------
 for var in HF_SIF_REPO SCRATCH; do
     if [[ -z "${!var}" || "${!var}" == *"XXXXXXX"* || "${!var}" == *"your-"* ]]; then
-        echo "[ERROR] .env içinde '$var' henüz doldurulmamış."
+        echo "[ERROR] '$var' is not configured in .env."
         exit 1
     fi
 done
@@ -67,14 +67,14 @@ mkdir -p "${SIF_DIR}" "${LOG_DIR}" \
          "${APPTAINER_CACHEDIR}" "${APPTAINER_TMPDIR}"
 
 # ---------------------------------------------------------------------------
-# SIF dosyalarını HuggingFace'den indir (yoksa)
+# Download SIF files from HuggingFace if not present
 # ---------------------------------------------------------------------------
 SIF_FILES=(vlm llm orchestrator totalsegmentator voxtell biomedparse)
 
 echo "[sif] HuggingFace repo: ${HF_SIF_REPO}"
 
 if ! command -v huggingface-cli &>/dev/null; then
-    echo "[sif] huggingface-cli bulunamadı, kuruluyor..."
+    echo "[sif] huggingface-cli not found, installing..."
     pip install -q huggingface_hub
 fi
 
@@ -88,7 +88,7 @@ for name in "${SIF_FILES[@]}"; do
             --repo-type dataset \
             --local-dir "${SIF_DIR}"
         if [[ ! -f "$sif" ]]; then
-            echo "[ERROR] ${name}.sif indirilemedi — HF_SIF_REPO ve dosya adını kontrol et."
+            echo "[ERROR] Failed to download ${name}.sif — check HF_SIF_REPO and file name."
             exit 1
         fi
         echo "[sif] ok    ${name}.sif"
@@ -110,7 +110,7 @@ done
 for port in 8001 8002 8011 8012 8013 7860; do
     pids=$(lsof -ti tcp:${port} 2>/dev/null)
     if [[ -n "$pids" ]]; then
-        echo "[cleanup] port ${port} üzerindeki stale process öldürülüyor: ${pids}"
+        echo "[cleanup] killing stale process on port ${port}: ${pids}"
         kill -9 ${pids} 2>/dev/null
     fi
 done
@@ -130,7 +130,7 @@ export TOOL_URL_BIOMEDPARSE="http://127.0.0.1:${BIOMEDPARSE_PORT}"
 export OUTPUT_DIR="${SCRATCH}/outputs"
 
 # ---------------------------------------------------------------------------
-# Servisleri başlat
+# Start services
 # ---------------------------------------------------------------------------
 
 echo "[start] vlm (GPU 0)"
@@ -234,7 +234,7 @@ echo $! > "${LOG_DIR}/orchestrator.pid"; echo "  pid: $!"
 
 echo ""
 echo "========================================"
-echo "Servisler başlatıldı."
+echo "Services started."
 echo "- VLM:          http://127.0.0.1:${VLM_PORT}"
 echo "- LLM:          http://127.0.0.1:${LLM_PORT}"
 echo "- TotalSeg:     http://127.0.0.1:${TOTALSEG_PORT}"

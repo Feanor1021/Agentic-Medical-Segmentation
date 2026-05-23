@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY services/vlm /app
 ENV HOST=0.0.0.0
 ENV PORT=8000
-# HuggingFace cache (volume ile kalıcı yapacağız)
+# HuggingFace model cache — mount a volume here to persist across runs
 ENV HF_HOME=/models/hf
 ENV TRANSFORMERS_CACHE=/models/hf
 EXPOSE 8000
