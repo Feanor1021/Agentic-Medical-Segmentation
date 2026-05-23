@@ -91,26 +91,45 @@ Tool selection accuracy: **96.1%** (292/304 cases correctly routed).
 
 ### Prerequisites
 
-- Access to CSC Puhti under project `project_2016517`
-- Singularity SIF files must exist under `apptainer/sif/`:
-  - `vlm.sif`, `llm.sif`, `orchestrator.sif` — built from `.def` files
-  - `totalsegmentator.sif` — available at `/scratch/project_2016517/haris/totalsegmentator.sif`
-  - `voxtell.sif` — built from `tool_voxtell.def`
-  - `biomedparse.sif` — available at `/scratch/project_2016517/balazs/biomedparse/biomedparse.sif`
+- Access to a CSC Puhti allocation (or any HPC cluster with Apptainer)
+- Python virtual environment with `huggingface_hub` installed (for SIF download)
 
-### Start all services
+### 1. .env dosyasını oluştur
+
+Proje dizininde `.env` adında bir dosya oluştur ve aşağıdaki içeriği yapıştır. Sadece `SCRATCH` ve `CSC_PROJECT` satırlarını kendi bilgilerinle değiştir, geri kalanlar olduğu gibi kalabilir:
+
+```
+HF_SIF_REPO=csotbal/agentic-seg
+
+SCRATCH=/scratch/project_XXXXXXX/your-username
+CSC_PROJECT=project_XXXXXXX
+
+VAL_DATA_DIR=/scratch/project_XXXXXXX/your-username/val_data
+
+VLM_PORT=8001
+LLM_PORT=8002
+GRADIO_PORT=7860
+TOTALSEG_PORT=8011
+VOXTELL_PORT=8012
+BIOMEDPARSE_PORT=8013
+```
+
+`HF_SIF_REPO` sabit kalacak — SIF dosyaları buradan otomatik indirilir.
+
+### 2. Start all services
 
 ```bash
-cd /scratch/project_2016517/furkan/agentic-seg
+cd /path/to/agentic-seg
 source agentic/bin/activate
 bash run_puhti.sh
 ```
 
 `run_puhti.sh` does the following automatically:
-1. Kills any stale processes on ports 8001, 8002, 8011, 8012, 8013, 7860
-2. Builds any missing SIF files (`vlm.sif`, `llm.sif`, `orchestrator.sif`)
-3. Starts all services as background Apptainer processes
-4. Writes PIDs to `logs/<service>.pid` and logs to `logs/<service>.log`
+1. Reads `.env` and validates required variables
+2. Downloads any missing SIF files from the HuggingFace repo via `huggingface-cli`
+3. Kills any stale processes on ports 8001, 8002, 8011, 8012, 8013, 7860
+4. Starts all services as background Apptainer processes
+5. Writes PIDs to `logs/<service>.pid` and logs to `logs/<service>.log`
 
 ### Wait for services to come up
 

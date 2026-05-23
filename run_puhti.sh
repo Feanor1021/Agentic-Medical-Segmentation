@@ -3,9 +3,13 @@
 # run_puhti.sh
 #
 # Puhti HPC kümesinde tüm servisleri Apptainer ile başlatır.
-# SIF dosyaları yoksa önce build eder.
+# SIF dosyaları yoksa HuggingFace'den otomatik olarak indirilir.
 #
-# Servisler ve portlar:
+# Kullanım:
+#   cp .env.example .env   # bir kez yap, .env'i doldur
+#   bash run_puhti.sh
+#
+# Servisler ve portlar (.env'den okunur, default'lar aşağıdadır):
 #   VLM           : 8001  (GPU 0)
 #   LLM           : 8002  (GPU 1)
 #   TotalSeg      : 8011  (GPU 0)
@@ -13,20 +17,39 @@
 #   BiomedParse   : 8013  (GPU 1)
 #   Orchestrator  : 7860
 #
-# Çalıştırma:
-#   bash run_puhti.sh
-#
-# Port override (opsiyonel):
-#   VLM_PORT=8001 LLM_PORT=8002 bash run_puhti.sh
-#
-# Log dosyaları: logs/<servis>.log
-# PID dosyaları: logs/<servis>.pid
+# Log dosyaları : logs/<servis>.log
+# PID dosyaları : logs/<servis>.pid
 # =============================================================================
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ---------------------------------------------------------------------------
+# .env yükle
+# ---------------------------------------------------------------------------
+ENV_FILE="${ROOT_DIR}/.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+    echo "[ERROR] .env dosyası bulunamadı."
+    echo "  Önce şunu çalıştır: cp .env.example .env"
+    echo "  Ardından .env içindeki değerleri doldur."
+    exit 1
+fi
+set -a; source "$ENV_FILE"; set +a
+
+# ---------------------------------------------------------------------------
+# Zorunlu değişken kontrolü
+# ---------------------------------------------------------------------------
+for var in HF_SIF_REPO SCRATCH; do
+    if [[ -z "${!var}" || "${!var}" == *"XXXXXXX"* || "${!var}" == *"your-"* ]]; then
+        echo "[ERROR] .env içinde '$var' henüz doldurulmamış."
+        exit 1
+    fi
+done
+
+# ---------------------------------------------------------------------------
+# Sabitler
+# ---------------------------------------------------------------------------
 SIF_DIR="${ROOT_DIR}/apptainer/sif"
 LOG_DIR="${ROOT_DIR}/logs"
-SCRATCH="/scratch/project_2016517/furkan"
 
 VLM_PORT="${VLM_PORT:-8001}"
 LLM_PORT="${LLM_PORT:-8002}"
@@ -41,11 +64,41 @@ export APPTAINER_TMPDIR="${SCRATCH}/tmp/apptainer_tmp"
 mkdir -p "${SIF_DIR}" "${LOG_DIR}" \
          "${SCRATCH}/tmp" "${SCRATCH}/outputs" \
          "${SCRATCH}/hf_home" "${SCRATCH}/models" \
-         "${APPTAINER_CACHEDIR}" "${APPTAINER_TMPDIR}" \
-         /tmp/yardimf/32685786
+         "${APPTAINER_CACHEDIR}" "${APPTAINER_TMPDIR}"
 
-# PID dosyalarından eski servisleri durdur
-for svc in orchestrator vlm llm totalseg voxtell voxtell_server biomedparse; do
+# ---------------------------------------------------------------------------
+# SIF dosyalarını HuggingFace'den indir (yoksa)
+# ---------------------------------------------------------------------------
+SIF_FILES=(vlm llm orchestrator totalsegmentator voxtell biomedparse)
+
+echo "[sif] HuggingFace repo: ${HF_SIF_REPO}"
+
+if ! command -v huggingface-cli &>/dev/null; then
+    echo "[sif] huggingface-cli bulunamadı, kuruluyor..."
+    pip install -q huggingface_hub
+fi
+
+for name in "${SIF_FILES[@]}"; do
+    sif="${SIF_DIR}/${name}.sif"
+    if [[ -f "$sif" ]]; then
+        echo "[sif] skip  ${name}.sif (zaten mevcut)"
+    else
+        echo "[sif] indir ${name}.sif ..."
+        huggingface-cli download "${HF_SIF_REPO}" "${name}.sif" \
+            --repo-type dataset \
+            --local-dir "${SIF_DIR}"
+        if [[ ! -f "$sif" ]]; then
+            echo "[ERROR] ${name}.sif indirilemedi — HF_SIF_REPO ve dosya adını kontrol et."
+            exit 1
+        fi
+        echo "[sif] ok    ${name}.sif"
+    fi
+done
+
+# ---------------------------------------------------------------------------
+# Eski servisleri durdur
+# ---------------------------------------------------------------------------
+for svc in orchestrator vlm llm totalseg voxtell biomedparse; do
     pid_file="${LOG_DIR}/${svc}.pid"
     if [[ -f "$pid_file" ]]; then
         pid=$(cat "$pid_file")
@@ -54,41 +107,31 @@ for svc in orchestrator vlm llm totalseg voxtell voxtell_server biomedparse; do
     fi
 done
 
-# Port bazlı temizlik — pid dosyası olmayan kalıntı processleri de öldür
-for port in 8001 8002 8011 8012 8013 7860 8105; do
+for port in 8001 8002 8011 8012 8013 7860; do
     pids=$(lsof -ti tcp:${port} 2>/dev/null)
     if [[ -n "$pids" ]]; then
-        echo "[cleanup] killing stale process on port ${port}: ${pids}"
+        echo "[cleanup] port ${port} üzerindeki stale process öldürülüyor: ${pids}"
         kill -9 ${pids} 2>/dev/null
     fi
 done
 
 pkill -f "voxtell_server\|server:app.*8105" 2>/dev/null || true
-
 sleep 2
-
-# Eski log dosyalarını temizle
 rm -f "${LOG_DIR}"/*.log "${LOG_DIR}"/*.pid
 
-# SIF dosyalarını build et (yoksa)
-for def_pair in "vlm:services/vlm/vlm.def" "llm:services/llm/llm.def" "orchestrator:orchestrator/orchestrator.def"; do
-    name="${def_pair%%:*}"; def_path="${def_pair##*:}"; sif="${SIF_DIR}/${name}.sif"
-    if [[ -f "$sif" ]]; then
-        echo "[skip] ${name}.sif already exists."
-    else
-        echo "[build] ${name}.sif ..."
-        cd "${ROOT_DIR}"
-        APPTAINER_BIND="" APPTAINER_BINDPATH="" SINGULARITY_BIND="" SINGULARITY_BINDPATH="" \
-        apptainer build --fakeroot "${sif}" "${ROOT_DIR}/${def_path}"
-        echo "[build] OK"
-    fi
-done
-
+# ---------------------------------------------------------------------------
+# Servis URL'lerini export et
+# ---------------------------------------------------------------------------
 export VLM_URL="http://127.0.0.1:${VLM_PORT}"
 export LLM_URL="http://127.0.0.1:${LLM_PORT}"
 export TOOL_URL_TOTALSEG="http://127.0.0.1:${TOTALSEG_PORT}"
 export TOOL_URL_VOXTELL="http://127.0.0.1:${VOXTELL_PORT}"
 export TOOL_URL_BIOMEDPARSE="http://127.0.0.1:${BIOMEDPARSE_PORT}"
+export OUTPUT_DIR="${SCRATCH}/outputs"
+
+# ---------------------------------------------------------------------------
+# Servisleri başlat
+# ---------------------------------------------------------------------------
 
 echo "[start] vlm (GPU 0)"
 nohup apptainer run --nv \
@@ -104,8 +147,6 @@ nohup apptainer run --nv \
     > "${LOG_DIR}/vlm.log" 2>&1 &
 echo $! > "${LOG_DIR}/vlm.pid"; echo "  pid: $!"
 
-export CUDA_VISIBLE_DEVICES=""
-unset CUDA_VISIBLE_DEVICES
 echo "[start] llm (GPU 1)"
 nohup apptainer run --nv \
     --bind "${SCRATCH}/models:/models" \
@@ -123,7 +164,7 @@ echo $! > "${LOG_DIR}/llm.pid"; echo "  pid: $!"
 echo "[start] totalseg (GPU 0)"
 nohup apptainer exec --nv \
     --bind "${ROOT_DIR}/services/tool_totalseg/api.py:/app/api.py" \
-    --bind "${SCRATCH}/hf_home:/users/yardimf/.totalsegmentator" \
+    --bind "${SCRATCH}/hf_home:/root/.totalsegmentator" \
     --bind "/scratch:/scratch" \
     --bind "${SCRATCH}/tmp:/gradio_tmp" \
     --bind "${SCRATCH}/outputs:/tmp/outputs" \
@@ -154,31 +195,25 @@ nohup apptainer exec --nv \
     > "${LOG_DIR}/voxtell.log" 2>&1 &
 echo $! > "${LOG_DIR}/voxtell.pid"; echo "  pid: $!"
 
-echo "[start] biomedparse"
-BIOMEDPARSE_SIF="/scratch/project_2016517/balazs/biomedparse/biomedparse.sif"
-if [[ ! -f "${BIOMEDPARSE_SIF}" ]]; then
-    echo "  [ERROR] BiomedParse SIF not found: ${BIOMEDPARSE_SIF}"
-    echo "  Copy with: cp /scratch/project_2016517/haris/biomedparse/biomedparse.sif ${SIF_DIR}/biomedparse.sif"
-else
-    nohup apptainer exec --nv \
-        --bind "${ROOT_DIR}/services/tool_biomedparse/api.py:/app/api.py" \
-        --bind "${SCRATCH}/hf_home:/app/hf_cache" \
-        --bind "/scratch:/scratch" \
-        --bind "${SCRATCH}/tmp:/tmp" \
-        --bind "${SCRATCH}/outputs:/tmp/outputs" \
-        --bind "${SCRATCH}/tmp:/gradio_tmp" \
-        --env "PYTHONUNBUFFERED=1" \
-        --env "PYTHONPATH=/app" \
-        --env "HF_HOME=/app/hf_cache" \
-        --env "HUGGINGFACE_HUB_CACHE=/app/hf_cache" \
-        --env "TMPDIR=${SCRATCH}/tmp" \
-        --env "APPTAINERENV_CUDA_VISIBLE_DEVICES=1" \
-        --pwd /app \
-        "${BIOMEDPARSE_SIF}" \
-        uvicorn api:app --host 0.0.0.0 --port "${BIOMEDPARSE_PORT}" \
-        > "${LOG_DIR}/biomedparse.log" 2>&1 &
-    echo $! > "${LOG_DIR}/biomedparse.pid"; echo "  pid: $!"
-fi
+echo "[start] biomedparse (GPU 1)"
+nohup apptainer exec --nv \
+    --bind "${ROOT_DIR}/services/tool_biomedparse/api.py:/app/api.py" \
+    --bind "${SCRATCH}/hf_home:/app/hf_cache" \
+    --bind "/scratch:/scratch" \
+    --bind "${SCRATCH}/tmp:/tmp" \
+    --bind "${SCRATCH}/outputs:/tmp/outputs" \
+    --bind "${SCRATCH}/tmp:/gradio_tmp" \
+    --env "PYTHONUNBUFFERED=1" \
+    --env "PYTHONPATH=/app" \
+    --env "HF_HOME=/app/hf_cache" \
+    --env "HUGGINGFACE_HUB_CACHE=/app/hf_cache" \
+    --env "TMPDIR=${SCRATCH}/tmp" \
+    --env "APPTAINERENV_CUDA_VISIBLE_DEVICES=1" \
+    --pwd /app \
+    "${SIF_DIR}/biomedparse.sif" \
+    uvicorn api:app --host 0.0.0.0 --port "${BIOMEDPARSE_PORT}" \
+    > "${LOG_DIR}/biomedparse.log" 2>&1 &
+echo $! > "${LOG_DIR}/biomedparse.pid"; echo "  pid: $!"
 
 echo "[start] orchestrator"
 nohup apptainer run --nv \
@@ -199,7 +234,7 @@ echo $! > "${LOG_DIR}/orchestrator.pid"; echo "  pid: $!"
 
 echo ""
 echo "========================================"
-echo "Servisler baslatildi."
+echo "Servisler başlatıldı."
 echo "- VLM:          http://127.0.0.1:${VLM_PORT}"
 echo "- LLM:          http://127.0.0.1:${LLM_PORT}"
 echo "- TotalSeg:     http://127.0.0.1:${TOTALSEG_PORT}"
@@ -207,10 +242,8 @@ echo "- VoxTell:      http://127.0.0.1:${VOXTELL_PORT}"
 echo "- BiomedParse:  http://127.0.0.1:${BIOMEDPARSE_PORT}"
 echo "- Gradio UI:    http://127.0.0.1:${GRADIO_PORT}"
 echo ""
-echo "Health check (30s sonra):"
-echo "  curl http://127.0.0.1:${TOTALSEG_PORT}/health"
-echo "  curl http://127.0.0.1:${VOXTELL_PORT}/health"
-echo "  curl http://127.0.0.1:${BIOMEDPARSE_PORT}/health"
-echo "  curl http://127.0.0.1:${LLM_PORT}/health"
+echo "Health check (60-90s sonra):"
+echo "  for port in 8001 8002 8011 8012 8013; do curl -s http://127.0.0.1:\$port/health; echo; done"
+echo ""
+echo "Loglar: ${LOG_DIR}/"
 echo "========================================"
-export OUTPUT_DIR=/scratch/project_2016517/furkan/agentic-seg/output
