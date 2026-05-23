@@ -94,9 +94,9 @@ Tool selection accuracy: **96.1%** (292/304 cases correctly routed).
 - Access to a CSC Puhti allocation (or any HPC cluster with Apptainer)
 - Python virtual environment with `huggingface_hub` installed (for SIF download)
 
-### 1. .env dosyasını oluştur
+### 1. Create .env
 
-Proje dizininde `.env` adında bir dosya oluştur ve aşağıdaki içeriği yapıştır. Sadece `SCRATCH` ve `CSC_PROJECT` satırlarını kendi bilgilerinle değiştir, geri kalanlar olduğu gibi kalabilir:
+Create a file named `.env` in the project root and paste the content below. Only change `SCRATCH` and `CSC_PROJECT` to match your Puhti account — everything else can stay as-is:
 
 ```
 HF_SIF_REPO=csotbal/agentic-seg
@@ -114,7 +114,7 @@ VOXTELL_PORT=8012
 BIOMEDPARSE_PORT=8013
 ```
 
-`HF_SIF_REPO` sabit kalacak — SIF dosyaları buradan otomatik indirilir.
+`HF_SIF_REPO` is already set — SIF files will be downloaded from there automatically.
 
 ### 2. Start all services
 
