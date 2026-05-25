@@ -73,18 +73,33 @@ SIF_FILES=(vlm llm orchestrator totalsegmentator voxtell biomedparse)
 
 echo "[sif] HuggingFace repo: ${HF_SIF_REPO}"
 
-if ! command -v huggingface-cli &>/dev/null; then
-    echo "[sif] huggingface-cli not found, installing..."
+# Detect whether the new `hf` CLI or legacy `huggingface-cli` is available
+HF_CMD=""
+if command -v hf &>/dev/null; then
+    HF_CMD="hf"
+elif command -v huggingface-cli &>/dev/null; then
+    HF_CMD="huggingface-cli"
+else
+    echo "[sif] No HF CLI found, installing huggingface_hub..."
     pip install -q huggingface_hub
+    if command -v hf &>/dev/null; then
+        HF_CMD="hf"
+    elif command -v huggingface-cli &>/dev/null; then
+        HF_CMD="huggingface-cli"
+    else
+        echo "[ERROR] Could not install HF CLI. Install manually: pip install huggingface_hub"
+        exit 1
+    fi
 fi
+echo "[sif] Using CLI: ${HF_CMD}"
 
 for name in "${SIF_FILES[@]}"; do
     sif="${SIF_DIR}/${name}.sif"
     if [[ -f "$sif" ]]; then
-        echo "[sif] skip  ${name}.sif (zaten mevcut)"
+        echo "[sif] skip  ${name}.sif (already exists)"
     else
-        echo "[sif] indir ${name}.sif ..."
-        huggingface-cli download "${HF_SIF_REPO}" "${name}.sif" \
+        echo "[sif] downloading ${name}.sif ..."
+        ${HF_CMD} download "${HF_SIF_REPO}" "${name}.sif" \
             --repo-type dataset \
             --local-dir "${SIF_DIR}"
         if [[ ! -f "$sif" ]]; then
