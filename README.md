@@ -59,17 +59,16 @@ Tool selection accuracy: **96.1%** (292/304 cases correctly routed).
 │       ├── tool_biomedparse.Dockerfile
 │       └── tool_biomedparse.def
 │
-├── validation/
-│   ├── download_msd_ct.py      # Download MSD dataset + build cases.csv
-│   ├── validate_pipeline.py    # Run evaluation on cases.csv
-│   ├── compare_results.py      # Print comparison table across tools
-│   └── visualize_cases.py      # Generate segmentation overlay figures
-│
+├── download_msd_ct.py          # Download MSD dataset + build cases.csv
+├── validate_pipeline.py        # Run evaluation on cases.csv
+├── visualize_cases.py          # Generate segmentation overlay figures
 ├── run_puhti.sh                # Start all services on Puhti (Apptainer)
 ├── val_job.sh                  # SLURM job: full agentic pipeline validation
-├── val_totalseg_job.sh         # SLURM job: force_tool=totalseg
-├── val_voxtell_job.sh          # SLURM job: force_tool=voxtell
-├── val_biomedparse_job.sh      # SLURM job: force_tool=biomedparse
+├── benchmark_jobs/
+│   ├── compare_results.py      # Print comparison table across tools
+│   ├── val_totalseg_job.sh     # SLURM job: force_tool=totalseg
+│   ├── val_voxtell_job.sh      # SLURM job: force_tool=voxtell
+│   └── val_biomedparse_job.sh  # SLURM job: force_tool=biomedparse
 └── docker-compose.yml          # Local Docker Compose (no GPU required for testing)
 ```
 
@@ -92,9 +91,28 @@ Tool selection accuracy: **96.1%** (292/304 cases correctly routed).
 ### Prerequisites
 
 - Access to a CSC Puhti allocation (or any HPC cluster with Apptainer)
-- Python virtual environment with `huggingface_hub` installed (for SIF download)
+- Python 3.10+
+- Git
 
-### 1. Create .env
+### 1. Clone and set up the environment
+
+```bash
+# Clone the repository
+git clone https://github.com/Feanor1021/deneme.git agentic-seg
+cd agentic-seg
+
+# Create a virtual environment
+python3 -m venv agentic
+source agentic/bin/activate
+
+# Install orchestrator dependencies
+pip install -r orchestrator/requirements.txt
+
+# huggingface_hub is needed for SIF download (included in requirements, but just in case)
+pip install huggingface_hub
+```
+
+### 2. Create .env
 
 Create a file named `.env` in the project root and paste the content below. Only change `SCRATCH` and `CSC_PROJECT` to match your Puhti account — everything else can stay as-is:
 
@@ -116,7 +134,7 @@ BIOMEDPARSE_PORT=8013
 
 `HF_SIF_REPO` is already set — SIF files will be downloaded from there automatically.
 
-### 2. Start all services
+### 3. Start all services
 
 ```bash
 cd /path/to/agentic-seg
@@ -185,9 +203,8 @@ done
 ### Download
 
 ```bash
-cd /scratch/project_2016517/furkan/agentic-seg
 source agentic/bin/activate
-python download_msd_ct.py --output_dir /scratch/project_2016517/furkan/val_data
+python download_msd_ct.py --output_dir ${VAL_DATA_DIR}
 ```
 
 This downloads three MSD tasks from AWS S3 and builds `cases.csv`:
@@ -206,7 +223,7 @@ To skip downloading and only rebuild the CSV from existing files:
 
 ```bash
 python download_msd_ct.py \
-    --output_dir /scratch/project_2016517/furkan/val_data \
+    --output_dir ${VAL_DATA_DIR} \
     --skip_download
 ```
 
@@ -214,7 +231,7 @@ To validate an existing CSV without downloading or generating:
 
 ```bash
 python download_msd_ct.py \
-    --output_dir /scratch/project_2016517/furkan/val_data \
+    --output_dir ${VAL_DATA_DIR} \
     --validate_only
 ```
 
@@ -228,7 +245,7 @@ python download_msd_ct.py \
 sbatch val_job.sh
 ```
 
-Starts all services, waits for health checks, then runs `validate_pipeline.py` with the full VLM → Planner → Critic routing. Results saved to `/scratch/project_2016517/furkan/val_data/results/`.
+Starts all services, waits for health checks, then runs `validate_pipeline.py` with the full VLM → Planner → Critic routing. Results saved to ``${VAL_DATA_DIR}/results/``.
 
 ### Option B — Per-tool isolated evaluation (SLURM)
 
@@ -265,8 +282,8 @@ agentic           304  292/304     0.8057     0.9429
 
 ```bash
 python validate_pipeline.py \
-    --dataset_csv /scratch/project_2016517/furkan/val_data/cases.csv \
-    --output_dir  /scratch/project_2016517/furkan/val_data/results \
+    --dataset_csv ${VAL_DATA_DIR}/cases.csv \
+    --output_dir  ${VAL_DATA_DIR}/results \
     --force_tool  totalseg   # omit for full agentic mode
 ```
 
@@ -329,7 +346,7 @@ Services start on the same ports (8001, 8002, 8011, 8012, 8013, 7860). Note that
 - Python 3.10+
 - PyTorch 2.10.0
 - CUDA 11.8 (Puhti V100 32 GB nodes)
-- CSC Puhti project allocation: `project_2016517`
+- CSC Puhti project allocation (set in `.env`)
 - Apptainer (Singularity) for container runtime
 
 See `orchestrator/requirements.txt` and `services/<service>/requirements.txt` for per-component dependencies.
