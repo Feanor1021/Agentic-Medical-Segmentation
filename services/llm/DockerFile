@@ -1,8 +1,38 @@
-FROM python:3.10-slim
-WORKDIR /app
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-COPY server.py /app/server.py
+# =============================================================================
+# services/llm/Dockerfile
+#
+# Docker image for the Qwen 2.5 LLM service.
+# Functionally equivalent to llm.def (Apptainer).
+#
+# Build (from repo root):
+#   docker build -f services/llm/Dockerfile -t agseg-llm .
+#
+# Run:
+#   docker run --gpus all -p 8002:8002 \
+#     -v ./models:/models \
+#     -e HF_HOME=/models/hf \
+#     agseg-llm
+# =============================================================================
+
+FROM pytorch/pytorch:2.4.0-cuda11.8-cudnn9-runtime
+
 ENV PYTHONUNBUFFERED=1
-EXPOSE 8001
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
+ENV HF_HOME=/models/hf
+ENV TRANSFORMERS_CACHE=/models/hf
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY services/llm/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip uninstall -y torchvision torch || true && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY services/llm/server.py /app/server.py
+
+EXPOSE 8002
+
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8002"]
