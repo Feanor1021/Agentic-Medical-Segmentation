@@ -1,43 +1,31 @@
 # Core
-
 numpy
-
 scipy
-
 pydantic
-
 dataclasses-json
 
 
 
 # Medical I/O
-
 nibabel
 
 
 
 # HTTP
-
 requests
 
 
 
 # UI
-
 gradio
 
 
-
 # Visualization
-
 matplotlib
 
 
-
 # Utils
-
 tqdm
-
 python-dotenv
 
 
