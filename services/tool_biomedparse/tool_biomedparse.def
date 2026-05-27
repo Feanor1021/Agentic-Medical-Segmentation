@@ -15,29 +15,64 @@
 # =============================================================================
 
 Bootstrap: docker
-From: hariskhan687/biomedparse-tool:amd64
+From: pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel
 
-%labels
-    service tool_biomedparse
-    port 8013
-    image hariskhan687/biomedparse-tool:amd64
-
-%environment
-    export PYTHONUNBUFFERED=1
-    export PYTHONPATH=/app:$PYTHONPATH
+%arguments
+    HF_TOKEN=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 
 
 %files
-    services/tool_biomedparse/api.py /app/api.py
+    biomedparse_server.py /api/server.py
+
+%environment
+    export HF_HOME=/app/hf_cache
+    export HUGGINGFACE_HUB_CACHE=/app/hf_cache
+    export TRANSFORMERS_CACHE=/app/hf_cache
+    export XDG_CACHE_HOME=/app/hf_cache
+    export PYTHONPATH=/app/BiomedParse:$PYTHONPATH
+    export TORCH_CUDA_ARCH_LIST="7.0;8.0;8.6;9.0"
+    export LD_LIBRARY_PATH=/usr/local/lib/python3.10/site-packages/nvidia/nvjitlink/lib:/usr/local/lib/python3.10/site-packages/nvidia/cuda_cupti/lib:/usr/local/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:/usr/local/lib/python3.10/site-packages/nvidia/cudnn/lib:/usr/local/lib/python3.10/site-packages/nvidia/cufft/lib:/usr/local/lib/python3.10/site-packages/nvidia/cusparse/lib:/usr/local/lib/python3.10/site-packages/nvidia/cuda_nvrtc/lib:/usr/local/lib/python3.10/site-packages/nvidia/nccl/lib:/usr/local/lib/python3.10/site-packages/nvidia/nvtx/lib:/usr/local/lib/python3.10/site-packages/nvidia/cusolver/lib:/usr/local/lib/python3.10/site-packages/nvidia/curand/lib:/usr/local/lib/python3.10/site-packages/nvidia/cublas/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/.singularity.d/libs:$LD_LIBRARY_PATH
 
 %post
-    # fvcore, iopath, pycocotools are already baked into the base image
-    # Only install the FastAPI wrapper dependencies
-    pip install --no-cache-dir \
-        fastapi==0.115.0 \
-        "uvicorn[standard]==0.30.6" \
-        pydantic==2.8.2
+    # ── Fix: expose CUDA libs so PyTorch is importable during the build ──
+    export LD_LIBRARY_PATH=/usr/local/lib/python3.10/site-packages/nvidia/nvjitlink/lib:/usr/local/lib/python3.10/site-packages/nvidia/cuda_cupti/lib:/usr/local/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:/usr/local/lib/python3.10/site-packages/nvidia/cudnn/lib:/usr/local/lib/python3.10/site-packages/nvidia/cufft/lib:/usr/local/lib/python3.10/site-packages/nvidia/cusparse/lib:/usr/local/lib/python3.10/site-packages/nvidia/cuda_nvrtc/lib:/usr/local/lib/python3.10/site-packages/nvidia/nccl/lib:/usr/local/lib/python3.10/site-packages/nvidia/nvtx/lib:/usr/local/lib/python3.10/site-packages/nvidia/cusolver/lib:/usr/local/lib/python3.10/site-packages/nvidia/curand/lib:/usr/local/lib/python3.10/site-packages/nvidia/cublas/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/.singularity.d/libs:$LD_LIBRARY_PATH
+
+    apt-get update && apt-get install -y --no-install-recommends \
+        git wget libgl1-mesa-glx libglib2.0-0 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
     mkdir -p /app
+    cd /app
+    git clone https://github.com/microsoft/BiomedParse.git BiomedParse
+    cd /app/BiomedParse
+
+    pip install --no-cache-dir -r assets/requirements/requirements.txt
+    pip install --no-cache-dir azureml-automl-core "pathspec<1.0.0" opencv-python fvcore iopath
+
+    # ── Detectron2: --no-build-isolation so it sees the system PyTorch ──
+    pip install --no-cache-dir --no-build-isolation \
+        git+https://github.com/facebookresearch/detectron2.git
+
+    pip install --no-cache-dir \
+        fastapi uvicorn pydantic requests huggingface_hub python-multipart nibabel
+
+    # ── Download gated model weights using --build-arg HF_TOKEN ──
+    mkdir -p /app/BiomedParse/weights /app/hf_cache
+    export HF_HOME=/app/hf_cache
+    export HUGGINGFACE_HUB_CACHE=/app/hf_cache
+    python -c "
+from huggingface_hub import hf_hub_download
+token = '{{ HF_TOKEN }}'
+if not token:
+    raise RuntimeError('HF_TOKEN not set. Build with: apptainer build --build-arg HF_TOKEN=hf_... biomedparse.sif biomed.def')
+hf_hub_download(
+    repo_id='microsoft/BiomedParse',
+    filename='biomedparse_v2.ckpt',
+    local_dir='/app/BiomedParse/weights',
+    token=token
+)
+"
+    mkdir -p /data/input /data/output
 
 %runscript
-    cd /app
-    exec uvicorn api:app --host 0.0.0.0 --port 8013 "$@"
+    cd /app/BiomedParse
+    exec uvicorn server:app --host 0.0.0.0 --port 8106 --app-dir /api
