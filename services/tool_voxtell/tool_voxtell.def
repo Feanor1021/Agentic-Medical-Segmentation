@@ -15,30 +15,73 @@
 # =============================================================================
 
 Bootstrap: docker
-From: python:3.11-slim
-
-%labels
-    service tool_voxtell
-    port 8012
-
-%environment
-    export PYTHONUNBUFFERED=1
+From: docker.io/rockylinux/rockylinux:8.10
 
 %files
-    services/tool_voxtell/api.py /app/api.py
+    server.py /api/server.py
+
+%environment
+    export PATH=/usr/local/bin:$PATH
+    export HF_HOME=/app/hf_cache
+    export HUGGINGFACE_HUB_CACHE=/app/hf_cache
+    export TRANSFORMERS_CACHE=/app/hf_cache
+    export XDG_CACHE_HOME=/app/hf_cache
 
 %post
-    export TMPDIR=/scratch/project_2016517/furkan/tmp
-    export PIP_CACHE_DIR=/scratch/project_2016517/furkan/tmp/pip_cache
-    mkdir -p $TMPDIR $PIP_CACHE_DIR
-    pip install --no-cache-dir --upgrade pip
+    # Fix fakeroot permission issues
+    cp /usr/bin/true /usr/sbin/useradd
+    cp /usr/bin/true /usr/sbin/groupadd
+
+    # Update and install system packages
+    dnf -y update
+    dnf -y install \
+        python3.12 \
+        python3.12-pip \
+        git \
+        wget \
+        mesa-libGL \
+        glib2 \
+        && dnf clean all
+
+    # Make python3.12 and pip3.12 the system defaults via symlinks
+    ln -sf /usr/bin/python3.12 /usr/bin/python
+    ln -sf /usr/bin/python3.12 /usr/bin/python3
+    ln -sf /usr/bin/pip3.12 /usr/bin/pip
+    ln -sf /usr/bin/pip3.12 /usr/bin/pip3
+
+    # Upgrade pip and install API dependencies
+    pip install --upgrade pip
+    pip install --no-cache-dir fastapi uvicorn pydantic requests huggingface_hub python-multipart
+
+    # Install PyTorch (CUDA 12.1 build — compatible with Puhti V100)
     pip install --no-cache-dir \
-        fastapi==0.115.0 \
-        "uvicorn[standard]==0.30.6" \
-        pydantic==2.8.2 \
-        numpy==2.2.6
+        torch==2.5.1 \
+        torchvision==0.20.1 \
+        --index-url https://download.pytorch.org/whl/cu121
+
+    # Install VoxTell and all its dependencies
     mkdir -p /app
+    cd /app
+    git clone https://github.com/MIC-DKFZ/VoxTell.git .
+    pip install --no-cache-dir .
+
+    # Download VoxTell v1.1 checkpoints into the container image
+    python3 -c "from huggingface_hub import snapshot_download; \
+                snapshot_download(repo_id='mrokuss/VoxTell', \
+                allow_patterns=['voxtell_v1.1/*', '*.json'], \
+                local_dir='/app/voxtell_weights')"
+
+    # Bake in the Qwen3-Embedding-4B text encoder to avoid runtime downloads
+    mkdir -p /app/hf_cache
+    export HF_HOME=/app/hf_cache
+    export HUGGINGFACE_HUB_CACHE=/app/hf_cache
+    python3 -c "from huggingface_hub import snapshot_download; \
+                snapshot_download(repo_id='Qwen/Qwen3-Embedding-4B', \
+                local_dir='/app/hf_cache')"
+
+    # Create mount points for external data
+    mkdir -p /data/input /data/output
 
 %runscript
-    cd /app
-    exec uvicorn api:app --host 0.0.0.0 --port 8012 "$@"
+    cd /api
+    exec uvicorn server:app --host 0.0.0.0 --port 8105
