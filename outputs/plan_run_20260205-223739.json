@@ -1,6 +1,0 @@
-{
-  "run_id": "run_20260205-223739",
-  "goal": "is it mri CT ?? or what is this chest thing ? I wanna do segmentation bro.",
-  "steps": [],
-  "notes": "VLM returned non-JSON text (see report)."
-}

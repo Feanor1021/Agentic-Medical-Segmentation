@@ -1,8 +1,0 @@
-{
-  "run_id": "run_20260205-211148",
-  "goal": "Segment lung infection plss",
-  "modality": "unknown",
-  "target": "unknown",
-  "steps": [],
-  "notes": "VLM failed -> no steps"
-}
