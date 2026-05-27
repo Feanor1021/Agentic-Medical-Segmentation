@@ -120,7 +120,7 @@ starting.
 ### 1. Clone and set up the environment
 
 ```bash
-git clone https://github.com/Feanor1021/deneme.git agentic-seg
+git clone https://github.com/Feanor1021/Agentic-Medical-Segmentation.git
 cd agentic-seg
 
 python3 -m venv agentic
