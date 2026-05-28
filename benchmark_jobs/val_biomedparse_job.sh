@@ -16,8 +16,15 @@
 #SBATCH --output=logs/val_biomedparse_%j.out
 #SBATCH --error=logs/val_biomedparse_%j.err
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+# Find repo root (.env location)
+if [ -f "${SLURM_SUBMIT_DIR}/.env" ]; then
+    ROOT_DIR="${SLURM_SUBMIT_DIR}"
+elif [ -f "${SLURM_SUBMIT_DIR}/../.env" ]; then
+    ROOT_DIR="$(cd "${SLURM_SUBMIT_DIR}/.." && pwd)"
+else
+    echo "[ERROR] Cannot find .env from ${SLURM_SUBMIT_DIR}"
+    exit 1
+fi
 
 set -a; source "${ROOT_DIR}/.env"; set +a
 cd "${ROOT_DIR}"
