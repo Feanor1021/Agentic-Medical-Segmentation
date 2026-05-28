@@ -3,15 +3,12 @@
 # ui_job.sh
 #
 # SLURM batch script that launches the full Agentic Segmentation UI on Puhti.
-# Requests 3× V100 GPUs, starts all microservices via run_puhti.sh, waits for
+# Requests 3x V100 GPUs, starts all microservices via run_puhti.sh, waits for
 # them to become ready, then prints an SSH tunnel command so the user can
 # open the Gradio interface from their local browser.
 #
 # Usage:
 #   sbatch ui_job.sh
-#
-# After the job starts, check the log for the tunnel command:
-#   tail -f logs/ui_job_<JOBID>.out
 # =============================================================================
 
 #SBATCH --job-name=agentic_ui
@@ -25,9 +22,7 @@
 #SBATCH --output=logs/ui_job_%j.out
 #SBATCH --error=logs/ui_job_%j.err
 
-# ---------------------------------------------------------------------------
 # Clean environment inherited from interactive sessions
-# ---------------------------------------------------------------------------
 unset SINGULARITY_BIND
 unset APPTAINER_BIND
 unset SINGULARITY_BINDPATH
@@ -36,23 +31,23 @@ unset TMPDIR
 unset TEMP
 unset TMP
 
-# ---------------------------------------------------------------------------
-# Start all services (VLM, LLM, tools, orchestrator)
-# ---------------------------------------------------------------------------
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+# Find repo root (.env location)
+if [ -f "${SLURM_SUBMIT_DIR}/.env" ]; then
+    ROOT_DIR="${SLURM_SUBMIT_DIR}"
+elif [ -f "${SLURM_SUBMIT_DIR}/../.env" ]; then
+    ROOT_DIR="$(cd "${SLURM_SUBMIT_DIR}/.." && pwd)"
+else
+    echo "[ERROR] Cannot find .env from ${SLURM_SUBMIT_DIR}"
+    exit 1
+fi
+
+cd "${ROOT_DIR}"
 source agentic/bin/activate
 bash run_puhti.sh
 
-# ---------------------------------------------------------------------------
-# Wait for services to be ready (typically 60-90s for model loading)
-# ---------------------------------------------------------------------------
 echo "Waiting for services to initialise..."
 sleep 120
 
-# ---------------------------------------------------------------------------
-# Print connection instructions
-# ---------------------------------------------------------------------------
 echo ""
 echo "========================================"
 echo "UI READY: http://$(hostname):7860"
@@ -60,5 +55,4 @@ echo "Connect from your desktop:"
 echo "  ssh -L 7860:$(hostname):7860 $(hostname)"
 echo "========================================"
 
-# Keep the job alive so the UI stays accessible
 sleep infinity
