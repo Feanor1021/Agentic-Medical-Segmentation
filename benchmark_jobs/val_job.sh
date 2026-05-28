@@ -2,11 +2,11 @@
 # =============================================================================
 # val_job.sh
 #
-# Puhti SLURM job: tam agentic pipeline validation (VLM + Planner + Critic).
+# Puhti SLURM job: full agentic pipeline validation (VLM + Planner + Critic).
 # Starts all services and runs validation once all health checks pass.
 #
 # Steps:
-#   1. Eski servisleri temizle
+#   1. Kill stale services
 #   2. Start all services via run_puhti.sh
 #   3. Wait until all services pass health check (ports 8001-8013)
 #   4. Run validate_pipeline.py in agent mode (no force_tool)
@@ -23,10 +23,14 @@
 #SBATCH --output=logs/val_job_%j.out
 #SBATCH --error=logs/val_job_%j.err
 
-cd /scratch/project_2016517/furkan/agentic-seg
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+set -a; source "${ROOT_DIR}/.env"; set +a
+cd "${ROOT_DIR}"
 source agentic/bin/activate
 
-echo "[1/4] Eski servisler temizleniyor..."
+echo "[1/4] Killing stale processes..."
 pkill -u $USER python
 pkill -u $USER apptainer
 
@@ -36,7 +40,6 @@ echo "[2/4] Starting services (run_puhti.sh)..."
 bash run_puhti.sh
 echo "Waiting for services to start..."
 
-echo "Waiting for services..."
 for port in 8001 8002 8011 8012 8013; do
     until curl -s http://127.0.0.1:$port/health | grep -q "ok"; do
         sleep 10; echo "Port $port not ready yet..."
@@ -46,8 +49,8 @@ done
 echo "All services ready!"
 
 echo "[3/4] Starting validation..."
-DATASET_CSV="/scratch/project_2016517/furkan/val_data/cases.csv"
-OUTPUT_DIR="/scratch/project_2016517/furkan/val_data/results"
+DATASET_CSV="${VAL_DATA_DIR}/cases.csv"
+OUTPUT_DIR="${VAL_DATA_DIR}/results"
 
 python -u validate_pipeline.py \
     --dataset_csv $DATASET_CSV \
@@ -65,7 +68,7 @@ all_dice = [r['dice'] for r in results if r['dice'] is not None]
 nonzero = [d for d in all_dice if d > 0.01]
 print('='*40)
 print(f'Total cases  : {len(results)}')
-print(f'Ortalama Dice: {np.mean(all_dice) if all_dice else 0:.4f}')
+print(f'Mean Dice    : {np.mean(all_dice) if all_dice else 0:.4f}')
 print(f'Successful (Dice > 0.01) mean: {np.mean(nonzero) if nonzero else 0:.4f} (n={len(nonzero)})')
 print('='*40)
 "

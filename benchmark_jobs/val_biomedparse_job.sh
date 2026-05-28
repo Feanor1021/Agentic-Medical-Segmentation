@@ -2,14 +2,8 @@
 # =============================================================================
 # val_biomedparse_job.sh
 #
-# Puhti SLURM job: starts BiomedParse service and runs validation.
-#
-# Steps:
-#   1. Kill stale python/apptainer processes
-#   2. Start services via run_puhti.sh
-#   3. Wait until BiomedParse health check passes
-#   4. Run validate_pipeline.py with force_tool=biomedparse
-#   5. Print result summary (Dice score, success rate)
+# Puhti SLURM job: starts all services and runs validation with
+# force_tool=biomedparse.
 # =============================================================================
 #SBATCH --job-name=val_biomedparse
 #SBATCH --account=project_2016517
@@ -22,7 +16,11 @@
 #SBATCH --output=logs/val_biomedparse_%j.out
 #SBATCH --error=logs/val_biomedparse_%j.err
 
-cd /scratch/project_2016517/furkan/agentic-seg
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+set -a; source "${ROOT_DIR}/.env"; set +a
+cd "${ROOT_DIR}"
 source agentic/bin/activate
 
 echo "[1/3] Cleanup..."
@@ -39,20 +37,19 @@ echo "biomedparse ready!"
 sleep 10
 
 echo "[3/3] Running validation (force_tool=biomedparse)..."
-DATASET_CSV="/scratch/project_2016517/furkan/val_data/cases.csv"
-OUTPUT_DIR="/scratch/project_2016517/furkan/val_data/results_biomedparse"
-mkdir -p $OUTPUT_DIR
+DATASET_CSV="${VAL_DATA_DIR}/cases.csv"
+RESULT_DIR="${VAL_DATA_DIR}/results_biomedparse"
+mkdir -p $RESULT_DIR
 
 python -u validate_pipeline.py \
     --dataset_csv $DATASET_CSV \
-    --output_dir $OUTPUT_DIR \
+    --output_dir $RESULT_DIR \
     --force_tool biomedparse \
  2>&1
 
-# Summarise: total cases, successful segmentations, mean/nonzero Dice
 python -c "
 import json, numpy as np, os
-path = '$OUTPUT_DIR/results.jsonl'
+path = '$RESULT_DIR/results.jsonl'
 results = [json.loads(l) for l in open(path)]
 all_dice = [r['dice'] for r in results if r.get('dice') is not None]
 nonzero = [d for d in all_dice if d > 0.01]
