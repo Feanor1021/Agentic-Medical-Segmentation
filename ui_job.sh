@@ -39,7 +39,8 @@ unset TMP
 # ---------------------------------------------------------------------------
 # Start all services (VLM, LLM, tools, orchestrator)
 # ---------------------------------------------------------------------------
-cd /scratch/project_2016517/furkan/agentic-seg
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
 source agentic/bin/activate
 bash run_puhti.sh
 

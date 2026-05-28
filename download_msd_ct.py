@@ -96,7 +96,7 @@ def wget_download(url: str, dest: str, desc: str = "") -> bool:
     """Download with wget; skip if already present and valid."""
     if os.path.exists(dest):
         if dest.endswith(".tar") and not is_valid_tar(dest):
-            print(f"  [bozuk] {Path(dest).name} siliniyor, yeniden Downloading ...")
+            print(f"  [corrupt] {Path(dest).name} removing, re-downloading ...")
             os.remove(dest)
         else:
             print(f"  [skip]  {desc or Path(dest).name} zaten mevcut")
@@ -410,7 +410,7 @@ def validate_csv(csv_path: str) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="Download MSD Task03+Task09+Task06 and build cases.csv")
-    parser.add_argument("--output_dir", default="/scratch/project_2016517/furkan/val_data")
+    parser.add_argument("--output_dir", default=os.environ.get("VAL_DATA_DIR", "./val_data"))
     parser.add_argument("--liver_n", type=int, default=100, help="Number of liver organ (label=1) cases")
     parser.add_argument("--liver_tumor_n", type=int, default=100, help="Number of liver tumour (label=2) cases")
     parser.add_argument("--no_label_check", action="store_true",
