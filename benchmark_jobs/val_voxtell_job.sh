@@ -1,10 +1,4 @@
 #!/bin/bash
-# =============================================================================
-# val_voxtell_job.sh
-#
-# Puhti SLURM job: starts all services and runs validation with
-# force_tool=voxtell.
-# =============================================================================
 #SBATCH --job-name=val_voxtell
 #SBATCH --account=project_2016517
 #SBATCH --partition=gpu
@@ -16,19 +10,10 @@
 #SBATCH --output=logs/val_voxtell_%j.out
 #SBATCH --error=logs/val_voxtell_%j.err
 
-# Find repo root (.env location)
-if [ -f "${SLURM_SUBMIT_DIR}/.env" ]; then
-    ROOT_DIR="${SLURM_SUBMIT_DIR}"
-elif [ -f "${SLURM_SUBMIT_DIR}/../.env" ]; then
-    ROOT_DIR="$(cd "${SLURM_SUBMIT_DIR}/.." && pwd)"
-else
-    echo "[ERROR] Cannot find .env from ${SLURM_SUBMIT_DIR}"
-    exit 1
-fi
-
-set -a; source "${ROOT_DIR}/.env"; set +a
-cd "${ROOT_DIR}"
+cd "${SLURM_SUBMIT_DIR}"
+[ ! -f .env ] && cd ..
 source agentic/bin/activate
+source .env
 
 echo "[1/3] Cleanup..."
 pkill -u $USER python; pkill -u $USER apptainer; sleep 2
@@ -45,18 +30,18 @@ sleep 10
 
 echo "[3/3] Running validation (force_tool=voxtell)..."
 DATASET_CSV="${VAL_DATA_DIR}/cases.csv"
-RESULT_DIR="${VAL_DATA_DIR}/results_voxtell"
-mkdir -p $RESULT_DIR
+OUTPUT_DIR="${VAL_DATA_DIR}/results_voxtell"
+mkdir -p $OUTPUT_DIR
 
 python -u validate_pipeline.py \
     --dataset_csv $DATASET_CSV \
-    --output_dir $RESULT_DIR \
+    --output_dir $OUTPUT_DIR \
     --force_tool voxtell \
  2>&1
 
 python -c "
 import json, numpy as np, os
-path = '$RESULT_DIR/results.jsonl'
+path = '$OUTPUT_DIR/results.jsonl'
 results = [json.loads(l) for l in open(path)]
 all_dice = [r['dice'] for r in results if r.get('dice') is not None]
 nonzero = [d for d in all_dice if d > 0.01]

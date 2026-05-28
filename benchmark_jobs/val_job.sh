@@ -1,17 +1,4 @@
 #!/bin/bash
-# =============================================================================
-# val_job.sh
-#
-# Puhti SLURM job: full agentic pipeline validation (VLM + Planner + Critic).
-# Starts all services and runs validation once all health checks pass.
-#
-# Steps:
-#   1. Kill stale services
-#   2. Start all services via run_puhti.sh
-#   3. Wait until all services pass health check (ports 8001-8013)
-#   4. Run validate_pipeline.py in agent mode (no force_tool)
-#   5. Print Dice summary
-# =============================================================================
 #SBATCH --job-name=pipeline_val
 #SBATCH --account=project_2016517
 #SBATCH --partition=gpu
@@ -23,19 +10,10 @@
 #SBATCH --output=logs/val_job_%j.out
 #SBATCH --error=logs/val_job_%j.err
 
-# Find repo root (.env location)
-if [ -f "${SLURM_SUBMIT_DIR}/.env" ]; then
-    ROOT_DIR="${SLURM_SUBMIT_DIR}"
-elif [ -f "${SLURM_SUBMIT_DIR}/../.env" ]; then
-    ROOT_DIR="$(cd "${SLURM_SUBMIT_DIR}/.." && pwd)"
-else
-    echo "[ERROR] Cannot find .env from ${SLURM_SUBMIT_DIR}"
-    exit 1
-fi
-
-set -a; source "${ROOT_DIR}/.env"; set +a
-cd "${ROOT_DIR}"
+cd "${SLURM_SUBMIT_DIR}"
+[ ! -f .env ] && cd ..
 source agentic/bin/activate
+source .env
 
 echo "[1/4] Killing stale processes..."
 pkill -u $USER python
@@ -45,8 +23,8 @@ pip install -q numpy nibabel requests scipy
 
 echo "[2/4] Starting services (run_puhti.sh)..."
 bash run_puhti.sh
-echo "Waiting for services to start..."
 
+echo "Waiting for services..."
 for port in 8001 8002 8011 8012 8013; do
     until curl -s http://127.0.0.1:$port/health | grep -q "ok"; do
         sleep 10; echo "Port $port not ready yet..."
