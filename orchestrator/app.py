@@ -353,6 +353,16 @@ def _build_report(plan, decision, trace, resp, vlm_text, parsed_found,
         elif reasons:
             lines.append(f"   • {reasons}")
 
+    # -- Image-vs-user mismatch ---------------------------------------------
+    _mm = plan.get("mismatch", {}) or {}
+    if _mm.get("present"):
+        lines.append(f"\n⚠️  IMAGE vs USER MISMATCH")
+        lines.append(f"   Detected        : yes")
+        if _mm.get("notes"):
+            lines.append(f"   Notes           : {_mm.get('notes')}")
+        if plan.get("mismatch_gate_triggered"):
+            lines.append(f"   Action          : paused for user confirmation (Proceed / Cancel)")
+
     # -- Planner trajectory -------------------------------------------------
     traj = plan.get("trajectory", []) or []
     if traj:
@@ -568,14 +578,13 @@ def on_run(state, axis, z, mode, n_slices, instruction, user_override=False):
 
     try:
         # ==================================================================
-        # 1. VLM — image understanding (analyse image only, no user goal)
+        # 1. VLM — image understanding (image-first, user-goal aware)
+        # We pass the user's instruction so the VLM's built-in image-first
+        # logic engages: it grounds the answer in image evidence first, and
+        # flags ambiguity if the user's request conflicts with the image.
         # ==================================================================
         t_vlm0 = time.time()
-        vlm_prompt = (
-            "Analyze this medical image. Describe modality, anatomy, "
-            "and any findings visible in the image only."
-        )
-        resp = call_hulu_infer(nifti_path, axis, n_slices, vlm_prompt)
+        resp = call_hulu_infer(nifti_path, axis, n_slices, str(instruction).strip())
         trace["timing"]["vlm_s"] = float(time.time() - t_vlm0)
         vlm_text = str(resp.get("text", ""))
         trace["vlm"]["response_meta"] = {
@@ -617,6 +626,19 @@ def on_run(state, axis, z, mode, n_slices, instruction, user_override=False):
             else:
                 questions = []
 
+            # -- Image-vs-user mismatch from VLM ambiguity / status ----------
+            # Simple signal: if the VLM flagged ambiguity, or set
+            # status=need_clarification, treat it as a mismatch worth pausing.
+            _amb_blk = user_blk.get("ambiguity", {})
+            _amb_blk = _amb_blk if isinstance(_amb_blk, dict) else {}
+            _vlm_status = str(parsed.get("status", "ok")).strip().lower()
+            mismatch = {
+                "present": bool(_amb_blk.get("present", False))
+                           or _vlm_status == "need_clarification",
+                "notes": str(_amb_blk.get("notes", "")).strip(),
+                "vlm_status": _vlm_status,
+            }
+
             plan = {
                 "run_id": run_id,
                 "goal": instruction,
@@ -624,6 +646,7 @@ def on_run(state, axis, z, mode, n_slices, instruction, user_override=False):
                 "user_raw": instruction,
                 "intent_summary": user_blk.get("intent_summary", ""),
                 "ambiguity": user_blk.get("ambiguity", {}) if isinstance(user_blk.get("ambiguity", {}), dict) else {},
+                "mismatch": mismatch,
                 "image": {
                     "modality": {
                         "label": mod_blk.get("label", "unknown"),
@@ -651,6 +674,7 @@ def on_run(state, axis, z, mode, n_slices, instruction, user_override=False):
                 "user_raw": instruction,
                 "intent_summary": "",
                 "ambiguity": {},
+                "mismatch": {"present": False, "notes": "", "vlm_status": "vlm_parse_failed"},
                 "image": {
                     "modality": {"label": "unknown", "confidence": None, "notes": ""},
                     "anatomy": {"region": "unknown", "confidence": None, "notes": ""},
@@ -760,16 +784,51 @@ def on_run(state, axis, z, mode, n_slices, instruction, user_override=False):
         plan["questions"] = decision.get("questions", plan.get("questions", []))
 
         # ==================================================================
+        # 5b. Mismatch gate — if the VLM flagged a mismatch, pause and ask
+        # the user (Proceed / Cancel) instead of running straight through.
+        # On user_override we keep the Critic's tool and continue.
+        # ==================================================================
+        _mismatch = plan.get("mismatch", {}) if isinstance(plan.get("mismatch", {}), dict) else {}
+        plan["mismatch_gate_triggered"] = False
+        if _mismatch.get("present") and not user_override and decision.get("action") != "error":
+            plan["mismatch_gate_triggered"] = True
+            log("Mismatch flagged by VLM", mismatch=_mismatch)
+            _mm_note = _mismatch.get("notes") or (
+                "The image does not appear to match the user's request."
+            )
+            _mm_question = (
+                f"Your request was \"{instruction}\", but the image analysis flagged "
+                f"a possible mismatch ({_mm_note}). The system would proceed based on "
+                f"the image"
+                + (f" using tool '{decision.get('tool')}'" if decision.get("tool") else "")
+                + ". Proceed anyway, or cancel and provide corrected input?"
+            )
+            decision["action"] = "need_clarification"
+            decision["reason"] = (
+                "Mismatch flagged by VLM: " + _mm_note + " | " + decision.get("reason", "")
+            ).strip(" |")
+            _existing_q = decision.get("questions") or []
+            if not isinstance(_existing_q, list):
+                _existing_q = [_existing_q]
+            decision["questions"] = [_mm_question] + _existing_q
+            plan["questions"] = decision["questions"]
+
+        # ==================================================================
         # 6. Explainer — generate clarification message if needed
         # ==================================================================
         explainer_text = ""
         t_exp0 = time.time()
         if llm_client:
             try:
+                explainer_input = dict(critic_raw) if isinstance(critic_raw, dict) else {}
+                if decision.get("action") == "need_clarification":
+                    explainer_input["questions"] = decision.get(
+                        "questions", explainer_input.get("questions", [])
+                    )
                 explainer_text = ExplainerAgent(llm_client).run(
-                    planner_json=plan.get("vlm_full", plan) if parsed_found else {},
-                    critic_raw=critic_raw,
-                    user_override_requested=user_override
+                    planner_output=planner_out,
+                    critic_raw=explainer_input,
+                    user_override_requested=user_override,
                 )
                 trace["explainer"]["ok"] = True
             except Exception as ee:
@@ -976,7 +1035,7 @@ def on_run(state, axis, z, mode, n_slices, instruction, user_override=False):
         if tool_result and llm_client:
             try:
                 reporter_text = ReporterAgent(llm_client).run(
-                    planner_json=plan.get("vlm_full", plan) if parsed_found else {},
+                    planner_output=plan.get("vlm_full", plan) if parsed_found else {},
                     tool_result=tool_result,
                 )
                 trace["reporter"]["ok"] = True
@@ -1166,7 +1225,7 @@ with gr.Blocks(title="Agentic Medical Image Segmentation",
 
     # Toggle the clarification banner based on report content
     def _check_clarification(report_text):
-        show = "action: need_clarification" in str(report_text)
+        show = "need_clarification" in str(report_text).lower() or "clarification needed" in str(report_text).lower()
         return gr.update(visible=show)
 
     def on_proceed(state, axis, z, mode, n_slices, instruction):
