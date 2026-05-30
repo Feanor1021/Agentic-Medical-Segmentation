@@ -54,7 +54,7 @@ VOXTELL_PORT="${VOXTELL_PORT:-8012}"
 BIOMEDPARSE_PORT="${BIOMEDPARSE_PORT:-8013}"
 export APPTAINER_CACHEDIR="${SCRATCH}/tmp/apptainer_cache"
 export APPTAINER_TMPDIR="${SCRATCH}/tmp/apptainer_tmp"
-mkdir -p "${SIF_DIR}" "${LOG_DIR}" \
+mkdir -p "${SIF_DIR}" "${LOG_DIR}" "${SCRATCH}/totalseg_weights" \
          "${SCRATCH}/tmp" "${SCRATCH}/outputs" \
          "${SCRATCH}/hf_home" "${SCRATCH}/models" \
          "${APPTAINER_CACHEDIR}" "${APPTAINER_TMPDIR}"
@@ -132,7 +132,7 @@ export OUTPUT_DIR="${SCRATCH}/outputs"
 # Start services
 # ---------------------------------------------------------------------------
 echo "[start] vlm (GPU 0)"
-nohup apptainer run --nv \
+nohup apptainer run --nv --home /tmp \
     --bind "${SCRATCH}/models:/models" \
     --bind "${SCRATCH}/hf_home:/models/hf" \
     --bind "${SCRATCH}/tmp:/tmp" \
@@ -144,7 +144,7 @@ nohup apptainer run --nv \
     > "${LOG_DIR}/vlm.log" 2>&1 &
 echo $! > "${LOG_DIR}/vlm.pid"; echo "  pid: $!"
 echo "[start] llm (GPU 1)"
-nohup apptainer run --nv \
+nohup apptainer run --nv --home /tmp \
     --bind "${SCRATCH}/models:/models" \
     --bind "${SCRATCH}/hf_home:/models/hf" \
     --bind "${SCRATCH}/tmp:/tmp" \
@@ -156,9 +156,9 @@ nohup apptainer run --nv \
     > "${LOG_DIR}/llm.log" 2>&1 &
 echo $! > "${LOG_DIR}/llm.pid"; echo "  pid: $!"
 echo "[start] totalseg (GPU 0)"
-nohup apptainer exec --nv \
+nohup apptainer exec --nv --home /tmp \
     --bind "${ROOT_DIR}/services/tool_totalseg/api.py:/app/api.py" \
-    --bind "${SCRATCH}/hf_home:/root/.totalsegmentator" \
+    --bind "${SCRATCH}/totalseg_weights:/tmp/.totalsegmentator" \
     --bind "/scratch:/scratch" \
     --bind "${SCRATCH}/tmp:/gradio_tmp" \
     --bind "${SCRATCH}/outputs:/tmp/outputs" \
@@ -171,9 +171,9 @@ nohup apptainer exec --nv \
     > "${LOG_DIR}/totalseg.log" 2>&1 &
 echo $! > "${LOG_DIR}/totalseg.pid"; echo "  pid: $!"
 echo "[start] voxtell (GPU 1)"
-nohup apptainer exec --nv \
+nohup apptainer exec --nv --home /tmp \
     --bind "${ROOT_DIR}/services/tool_voxtell/api.py:/app/api.py" \
-    --bind "${SCRATCH}/hf_home:/hf_cache" \
+    --bind "${SCRATCH}/hf_home:/app/hf_cache" \
     --bind "/scratch:/scratch" \
     --bind "${SCRATCH}/tmp:/gradio_tmp" \
     --bind "${SCRATCH}/outputs:/tmp/outputs" \
@@ -187,7 +187,7 @@ nohup apptainer exec --nv \
     > "${LOG_DIR}/voxtell.log" 2>&1 &
 echo $! > "${LOG_DIR}/voxtell.pid"; echo "  pid: $!"
 echo "[start] biomedparse (GPU 1)"
-nohup apptainer exec --nv \
+nohup apptainer exec --nv --home /tmp \
     --bind "${ROOT_DIR}/services/tool_biomedparse/api.py:/app/api.py" \
     --bind "${SCRATCH}/hf_home:/app/hf_cache" \
     --bind "/scratch:/scratch" \
@@ -206,7 +206,7 @@ nohup apptainer exec --nv \
     > "${LOG_DIR}/biomedparse.log" 2>&1 &
 echo $! > "${LOG_DIR}/biomedparse.pid"; echo "  pid: $!"
 echo "[start] orchestrator"
-nohup apptainer run --nv \
+nohup apptainer run --nv --home /tmp \
     --bind "${SCRATCH}/outputs:/tmp/outputs" \
     --bind "${SCRATCH}/tmp:/gradio_tmp" \
     --bind "${ROOT_DIR}/orchestrator:/app" \

@@ -33,13 +33,13 @@ DATASET_CSV="${VAL_DATA_DIR}/cases.csv"
 OUTPUT_DIR="${VAL_DATA_DIR}/results_totalseg"
 mkdir -p $OUTPUT_DIR
 
-python -u validate_pipeline.py \
+python3 -u validate_pipeline.py \
     --dataset_csv $DATASET_CSV \
     --output_dir $OUTPUT_DIR \
     --force_tool totalseg \
  2>&1
 
-python -c "
+python3 -c "
 import json, numpy as np, os
 path = '$OUTPUT_DIR/results.jsonl'
 results = [json.loads(l) for l in open(path)]

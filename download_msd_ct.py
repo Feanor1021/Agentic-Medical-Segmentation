@@ -474,9 +474,9 @@ def main():
     ok = validate_csv(csv_path)
 
     print(f"\nNext steps:")
-    print(f"  python validate_pipeline.py --dataset_csv {csv_path} --output_dir {base_dir}/results")
-    print(f"  python validate_pipeline.py --dataset_csv {csv_path} --output_dir {base_dir}/results_totalseg --force_tool totalseg --tool_filter totalseg")
-    print(f"  python validate_pipeline.py --dataset_csv {csv_path} --output_dir {base_dir}/results_voxtell  --force_tool voxtell  --tool_filter voxtell")
+    print(f"  python3 validate_pipeline.py --dataset_csv {csv_path} --output_dir {base_dir}/results")
+    print(f"  python3 validate_pipeline.py --dataset_csv {csv_path} --output_dir {base_dir}/results_totalseg --force_tool totalseg --tool_filter totalseg")
+    print(f"  python3 validate_pipeline.py --dataset_csv {csv_path} --output_dir {base_dir}/results_voxtell  --force_tool voxtell  --tool_filter voxtell")
 
     sys.exit(0 if ok else 1)
 

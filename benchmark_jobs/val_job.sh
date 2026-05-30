@@ -37,12 +37,12 @@ echo "[3/4] Starting validation..."
 DATASET_CSV="${VAL_DATA_DIR}/cases.csv"
 OUTPUT_DIR="${VAL_DATA_DIR}/results"
 
-python -u validate_pipeline.py \
+python3 -u validate_pipeline.py \
     --dataset_csv $DATASET_CSV \
     --output_dir $OUTPUT_DIR 2>&1
 
 echo "[4/4] Done. Summary:"
-python -c "
+python3 -c "
 import json, numpy as np, os
 path = '$OUTPUT_DIR/results.jsonl'
 if not os.path.exists(path):
